@@ -21,7 +21,6 @@ let modules, library, self, __private = {}, shared = {};
 
 __private.assetTypes = {};
 __private.loaded = false;
-__private.enabled = true;
 __private.blockReward = new BlockReward();
 __private.keypairs = {};
 __private.tmpKeypairs = {};
@@ -46,6 +45,7 @@ function Delegates (cb, scope) {
 		network: scope.network,
 		schema: scope.schema,
 		balancesSequence: scope.balancesSequence,
+		cache: scope.cache,
 		logic: {
 			transaction: scope.logic.transaction,
 		},
@@ -718,12 +718,14 @@ Delegates.prototype.internal = {
 	},
 
 	enableDelegateRegistration: function(req, cb) {
-		__private.enabled = true;
+		//__private.enabled = true;
+		library.cache.client.set('isDelegateRegistrationEnabled', true);
 		return setImmediate(cb);
 	},
 
 	disableDelegateRegistration: function(req, cb) {
-		__private.enabled = false;
+		//__private.enabled = false;
+		library.cache.client.set('isDelegateRegistrationEnabled', false);
 		return setImmediate(cb);
 	}
 };
@@ -935,7 +937,7 @@ Delegates.prototype.shared = {
 	},
 
 	addDelegate: function (req, cb) {
-		if (__private.enabled) {
+		if (library.cache.client.get('isDelegateRegistrationEnabled')) {
 			library.schema.validate(req.body, schema.addDelegate, function (err) {
 				if (err) {
 					return setImmediate(cb, err[0].message);

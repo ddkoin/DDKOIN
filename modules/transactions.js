@@ -25,7 +25,6 @@ let self;
 let epochTime = 1451667600; 
 
 __private.assetTypes = {};
-__private.enabled = true;
 
 /**
  * Initializes library with scope content and generates a Transfer instance
@@ -694,12 +693,14 @@ Transactions.prototype.internal = {
 	},
 
 	enableSendTransaction: function(req, cb) {
-		__private.enabled = true;
+		//__private.enabled = true;
+		library.cache.client.set('isSendTransactionEnabled', true);
 		return setImmediate(cb);
 	},
 
 	disableSendTransaction: function(req, cb) {
-		__private.enabled = false;
+		//__private.enabled = false;
+		library.cache.client.set('isSendTransactionEnabled', false);
 		return setImmediate(cb);
 	}
 };
@@ -809,7 +810,7 @@ Transactions.prototype.shared = {
 	},
 
 	addTransactions: function (req, cb) {
-		if (__private.enabled) {
+		if (library.cache.client.get('isSendTransactionEnabled')) {
 			library.schema.validate(req.body, schema.addTransactions, function (err) {
 				if (err) {
 					return setImmediate(cb, err[0].message);

@@ -21,7 +21,6 @@ let library;
 let self;
 
 __private.assetTypes = {};
-__private.enabled = true;
 
 /**
  * Initializes library with scope content and generates a Transfer instance
@@ -191,12 +190,14 @@ Frogings.prototype.onBind = function (scope) {
  */
 Frogings.prototype.internal = {
 	enableStakeTransaction: function(req, cb) {
-		__private.enabled = true;
+		//__private.enabled = true;
+		library.cache.client.set('isStakeTransactionEnabled', true);
 		return setImmediate(cb);
 	},
 
 	disableStakeTransaction: function(req, cb) {
-		__private.enabled = false;
+		//__private.enabled = false;
+		library.cache.client.set('isStakeTransactionEnabled', false);
 		return setImmediate(cb);
 	}
 };
@@ -292,7 +293,7 @@ Frogings.prototype.shared = {
 	},
 
 	addTransactionForFreeze: function (req, cb) {
-		if(__private.enabled) {
+		if(library.cache.client.get('isStakeTransactionEnabled')) {
 			let accountData;
 			library.schema.validate(req.body, schema.addTransactionForFreeze, function (err) {
 				if (err) {

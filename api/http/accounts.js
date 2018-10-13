@@ -80,7 +80,8 @@ function AccountsHttpApi (accountsModule, app) {
 		'get /generatenpNewPassphase':'generatenpNewPassphase',
 		'post /forgotEtpsPassword': 'forgotEtpsPassword',
 		'put /enableLogin': 'enableLogin',
-		'put /disableLogin': 'disableLogin'
+		'put /disableLogin': 'disableLogin',
+		'put /updateLoginAdminCode': 'updateLoginAdminCode'
 	});
 
 	if (process.env.DEBUG && process.env.DEBUG.toUpperCase() === 'TRUE') {
