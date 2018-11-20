@@ -2,9 +2,9 @@
 
 let Accounts = {
 
-	checkAccountStatus : 'SELECT "status" FROM mem_accounts WHERE "address"=${senderId}',
+	checkAccountStatus : 'SELECT "status" FROM mem_accounts where "address"=${senderId}',
 
-	findActiveStakeAmount: '(SELECT "startTime" AS "value" FROM stake_orders WHERE "senderId" = ${senderId} ORDER BY "startTime" DESC LIMIT 1) UNION ALL (SELECT SUM("freezedAmount") as "value" FROM stake_orders WHERE "senderId" = ${senderId} AND "status" = 1);',
+	findActiveStakeAmount: '(SELECT "startTime" AS "value" FROM stake_orders where "senderId" = ${senderId} ORDER BY "startTime" DESC LIMIT 1) UNION ALL (SELECT SUM("freezedAmount") as "value" FROM stake_orders WHERE "senderId" = ${senderId} AND "status" = 1);',
 
 	findActiveStake: 'SELECT * FROM stake_orders WHERE "senderId" = ${senderId} AND "status" = 1',
   
@@ -18,15 +18,15 @@ let Accounts = {
 
 	enableAccount : 'UPDATE mem_accounts SET "status" = 1 WHERE "address" = ${senderId}',
 
-	getTotalAccount : 'SELECT count("address") FROM mem_accounts',
+	getTotalAccount : 'SELECT count("address") FROM mem_accounts WHERE "balance" > 0',
 
-	getCurrentUnmined : 'SELECT "balance" FROM mem_accounts WHERE "address"=${address}',
+	getCurrentUnmined : 'SELECT "balance" FROM mem_accounts where "address"=${address}',
 
-	checkAlreadyMigrated : 'SELECT "isMigrated" FROM mem_accounts WHERE "name"=${username}',
+	checkAlreadyMigrated : 'SELECT "isMigrated" FROM mem_accounts where "name"=${username}',
   
 	updateUserInfo : 'UPDATE mem_accounts SET "balance" = ${balance},"u_balance"=${balance},"email" = ${email}, "phoneNumber" = ${phone}, "country" = ${country}, "name" = ${username}, "totalFrozeAmount"=${totalFrozeAmount}, "isMigrated" = 1, "group_bonus" = ${group_bonus} WHERE "address" = ${address}',
 
-	validateExistingUser: 'SELECT "id" FROM etps_user  WHERE  "username"=${username} AND "password"=${password}',
+	validateExistingUser: 'SELECT * FROM etps_user  WHERE  "username"=${username} AND "password"=${password}',
 
 	findTrsUser: 'SELECT * FROM trs WHERE "senderId" = ${senderId}',
 
@@ -38,39 +38,25 @@ let Accounts = {
 
 	totalFrozeAmount: 'SELECT sum("freezedAmount") FROM stake_orders WHERE "id"=${account_id} and "status"=1',
 
-	updateStakeOrder: 'UPDATE stake_orders SET "voteCount"="voteCount"+1, "nextVoteMilestone"=${currentTime}+${milestone} WHERE "senderId"=${senderId} AND "status"=1 AND ( "nextVoteMilestone" = 0 OR ${currentTime} >= "nextVoteMilestone")',
+	updateStakeOrder: 'UPDATE stake_orders SET "voteCount"="voteCount"+1, "nextVoteMilestone"="nextVoteMilestone"+${milestone} WHERE "senderId"=${senderId} AND "status"=1 AND ${currentTime} >= "nextVoteMilestone" RETURNING *',
 
-	GetOrders: 'SELECT * FROM stake_orders WHERE "senderId"=${senderId} AND "status" = 1',
-	
-	checkWeeklyVote: 'SELECT count(*) FROM stake_orders WHERE "senderId"=${senderId} AND "status"=1 AND ( "nextVoteMilestone" = 0 OR ${currentTime} >= "nextVoteMilestone")',
+	countAvailableStakeOrdersForVote: 'SELECT count(*) FROM stake_orders WHERE "senderId"=${senderId} AND "status"=1 AND ${currentTime} >= "nextVoteMilestone"',
 
     updateETPSUserInfo: 'UPDATE etps_user SET "transferred_time"=${insertTime}, "transferred_etp"=1 WHERE "id"=${userId} ',
 
-	validateReferSource : 'SELECT count(*) AS "address" FROM mem_accounts WHERE "address" = ${referSource}',
+	validateReferSource : 'SELECT count(*) AS address FROM mem_accounts WHERE "address" = ${referSource}',
 
-	findPassPhrase : 'SELECT "passphrase","transferred_etp" FROM migrated_etps_users WHERE "username" = ${userName}',
+	findPassPhrase : 'SELECT * from migrated_etps_users WHERE "username" = ${userName}',
 
 	updateEtp : 'UPDATE migrated_etps_users SET "transferred_etp" = 1,"transferred_time" = ${transfer_time} WHERE "address" = ${address}',
 
-	validateEtpsUser : 'SELECT "id","phone" FROM etps_user WHERE "username" = ${username} AND "email" = ${emailId}',
+	validateEtpsUser : 'SELECT * from etps_user WHERE "username" = ${username} AND "email" = ${emailId}',
 
 	updateEtpsPassword: 'UPDATE etps_user SET "password" = ${password} WHERE "username" = ${username}',
 
-	checkSenderBalance: 'SELECT balance FROM mem_accounts WHERE "address" = ${sender_address}',
+	checkSenderBalance: 'SELECT u_balance FROM mem_accounts WHERE "address" = ${sender_address}',
 
-	getMigratedList: 'SELECT m."address",e."username",m."totalFrozeAmount",m."balance",e."transferred_time",count(*) OVER() AS "user_count" FROM migrated_etps_users e INNER JOIN mem_accounts m ON(e."address" = m."address" AND e.transferred_etp = 1) order by e."transferred_time" DESC LIMIT ${limit} OFFSET ${offset}',
-
-	checkReferStatus: 'SELECT count(*)::int as "address" FROM referals WHERE "address"= ${address}',
-	
-	updateMigratedUserInfo: 'UPDATE migrated_etps_users SET "transferred_etp" = 0 , "transferred_time" = null WHERE "username" = ${username}',
-
-	checkValidEtpsUser: 'SELECT count(*)::int as count FROM migrated_etps_users WHERE "username" = ${username}',
-
-	addressBasedSearch: 'SELECT e."address",e."username",m."totalFrozeAmount",e."transferred_time" FROM migrated_etps_users e INNER JOIN mem_accounts m ON(m."address" = ${address} AND e."address" = ${address})',
-
-	usernameBasedSearch: 'SELECT e."username",e."address",e."transferred_time",m."totalFrozeAmount" FROM migrated_etps_users e INNER JOIN mem_accounts m ON(e."username" = ${username} AND m."address" = e."address")',
-
-	checkVoteCount: 'SELECT count("id") FROM stake_orders WHERE "senderId" = ${senderId} AND "status" = 1 AND "voteCount" IN (3 , 7, 11, 15, 19, 23)'
+	getMigratedList: 'select m."address",e."username",m."totalFrozeAmount",m."balance",count(*) OVER() AS user_count from migrated_etps_users e INNER JOIN mem_accounts m ON(e."address" = m."address" AND e.transferred_etp = 1) LIMIT ${limit} OFFSET ${offset}'
 };
 
 module.exports = Accounts;

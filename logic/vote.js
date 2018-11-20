@@ -5,7 +5,6 @@ let Diff = require('../helpers/diff.js');
 let _ = require('lodash');
 let sql = require('../sql/accounts.js');
 let slots = require('../helpers/slots.js');
-let utils = require('../utils');
 
 // Private fields
 let modules, library, self;
@@ -21,13 +20,13 @@ let modules, library, self;
  * @param {Object} logger
  * @param {ZSchema} schema
  */
-function Vote(logger, schema, db, dbReplica, cb) {
+function Vote(logger, schema, db, frozen, cb) {
 	self = this;
 	library = {
 		db: db,
-		dbReplica: dbReplica,
 		logger: logger,
 		schema: schema,
+        frozen: frozen
 	};
 	if (cb) {
 		return setImmediate(cb, null, this);
@@ -68,7 +67,8 @@ Vote.prototype.create = function (data, trs) {
  * @return {number} fee
  */
 Vote.prototype.calculateFee = function (trs, sender) {
-	return (parseInt(sender.totalFrozeAmount) * constants.fees.vote) / 100;
+	return 1;
+	// return (parseInt(sender.totalFrozeAmount) * constants.fees.vote) / 100;
 };
 
 /**
@@ -227,6 +227,7 @@ Vote.prototype.getBytes = function (trs) {
  * @todo delete unnecessary let parent = this
  */
 Vote.prototype.apply = function (trs, block, sender, cb) {
+	console.log('Vote apply');
 	let parent = this;
 
 	async.series([
@@ -257,15 +258,13 @@ Vote.prototype.apply = function (trs, block, sender, cb) {
 		function (seriesCb) {
 			self.updateAndCheckVote(
 				{
+					timestamp: trs.timestamp,
 					votes: trs.asset.votes,
 					senderId: trs.senderId
-				}
-				, function (err) {
-					if (err) {
-						return setImmediate(seriesCb, err);
-					}
-					return setImmediate(seriesCb, null);
-				});
+				}).then(
+					() => setImmediate(seriesCb, null),
+					err => setImmediate(seriesCb, err),
+				);
 		}
 	], cb);
 };
@@ -283,6 +282,7 @@ Vote.prototype.apply = function (trs, block, sender, cb) {
  * @return {setImmediateCallback} cb, err
  */
 Vote.prototype.undo = function (trs, block, sender, cb) {
+	console.log('Vote undo');
 	let parent = this;
 	if (trs.asset.votes === null) { return setImmediate(cb); }
 
@@ -295,7 +295,7 @@ Vote.prototype.undo = function (trs, block, sender, cb) {
 				blockId: block.id,
 				round: modules.rounds.calc(block.height)
 			}, seriesCb);
-		},
+		}, 
 		//added to remove vote count from mem_accounts table
 		function (seriesCb) {
 			self.updateMemAccounts(
@@ -324,6 +324,7 @@ Vote.prototype.undo = function (trs, block, sender, cb) {
  * @todo delete unnecessary let parent = this
  */
 Vote.prototype.applyUnconfirmed = function (trs, sender, cb) {
+	console.log('Vote apply unconfirmed');
 	let parent = this;
 
 	async.series([
@@ -352,6 +353,7 @@ Vote.prototype.applyUnconfirmed = function (trs, sender, cb) {
  * @return {setImmediateCallback} cb, err
  */
 Vote.prototype.undoUnconfirmed = function (trs, sender, cb) {
+	console.log('Vote undo unconfirmed');
 	if (trs.asset.votes === null) { return setImmediate(cb); }
 
 	let votesInvert = Diff.reverse(trs.asset.votes);
@@ -463,94 +465,33 @@ Vote.prototype.ready = function (trs, sender) {
  * @return {null|err} return null if success else err 
  * 
  */
-Vote.prototype.updateAndCheckVote = function (voteInfo, cb) {
-	let votes = voteInfo.votes;
-	let senderId = voteInfo.senderId;
-
-	function checkUpvoteDownvote(waterCb) {
-
-		if ((votes[0])[0] === '+') {
-			return setImmediate(waterCb, null, 1);
-		} else {
-			return setImmediate(waterCb, null, 0);
-		}
-	}
-
-	function checkWeeklyVote(voteType, waterCb) {
-
-		if (voteType === 1) {
-			library.db.many(sql.checkWeeklyVote, {
-				senderId: senderId,
-				currentTime: slots.getTime()
-			})
-				.then(function (resp) {
-					if ((resp.length !== 0) && parseInt(resp[0].count) > 0) {
-						return setImmediate(waterCb, null, true, voteType);
-					} else {
-						return setImmediate(waterCb, null, false, voteType);
-					}
-				})
-				.catch(function (err) {
-					library.logger.error('Error Message : ' + err.message + ' , Error query : ' + err.query + ' , Error stack : ' + err.stack);
-					return setImmediate(waterCb, err.toString());
-				});
-		} else {
-			return setImmediate(waterCb, null, false, voteType);
-		}
-	}
-
-	function updateStakeOrder(found, voteType, waterCb) {
-		if (found) {
-			library.db.none(sql.updateStakeOrder, {
-				senderId: senderId,
-				milestone: constants.froze.vTime * 60,
-				currentTime: slots.getTime()
-			})
-				.then(function () {
-					library.db.query(sql.GetOrders, {
-						senderId: senderId
-					})
-						.then(function (rows) {
-							if (rows.length > 0) {
-								let bulk = utils.makeBulk(rows, 'stake_orders');
-								utils.indexall(bulk, 'stake_orders')
-									.then(function (result) {
-										library.logger.info(senderId + ': update stake orders isvoteDone and count');
-										return setImmediate(waterCb, null, voteType);
-									})
-									.catch(function (err) {
-										library.logger.error('elasticsearch error :' + err.message);
-										return setImmediate(waterCb, err.message);
-									});
-							}
-						})
-						.catch(function (err) {
-							library.logger.error('database error :' + err.message);
-							return setImmediate(waterCb, err.message);
-						});
-				})
-				.catch(function (err) {
-					library.logger.error('Error Message : ' + err.message + ' , Error query : ' + err.query + ' , Error stack : ' + err.stack);
-					return setImmediate(waterCb, err.toString());
-				});
-		} else {
-			return setImmediate(waterCb, null, voteType);
-		}
-
-	}
-
-	async.waterfall([
-		checkUpvoteDownvote,
-		checkWeeklyVote,
-		updateStakeOrder
-	], function (err) {
-		if (err) {
-			library.logger.warn(err);
-			return setImmediate(cb, err);
-		}
-		return setImmediate(cb, null);
-	});
-
+Vote.prototype.updateAndCheckVote = async (voteInfo, cb) => {
+    let senderId = voteInfo.senderId;
+    try {
+        // todo check if could change to tx
+        await library.db.task(async () =>{
+            let availableToVote = true;
+            const queryResult = await library.db.one(sql.countAvailableStakeOrdersForVote, {
+                senderId: senderId,
+                currentTime: slots.getTime()
+            });
+            if(queryResult && queryResult.hasOwnProperty("count")) {
+                const count = parseInt(queryResult.count, 10);
+                availableToVote = count !== 0;
+            }
+            if(availableToVote) {
+                let order = await library.db.one(sql.updateStakeOrder, {
+                    senderId: senderId,
+                    milestone: constants.froze.vTime, //back to vTime * 60
+                    currentTime: slots.getTime()
+                });
+                await library.frozen.checkFrozeOrders({address: senderId});
+            }
+        });
+    } catch (err) {
+        library.logger.warn(err);
+        throw err;
+    }
 };
 
 /**
@@ -596,7 +537,7 @@ Vote.prototype.updateMemAccounts = function (voteInfo, cb) {
 				return setImmediate(waterCb);
 			})
 			.catch(function (err) {
-				library.logger.error('Error Message : ' + err.message + ' , Error query : ' + err.query + ' , Error stack : ' + err.stack);
+				library.logger.error(err.stack);
 				return setImmediate(waterCb, 'vote updation in mem_accounts table error');
 			});
 	}

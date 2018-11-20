@@ -829,10 +829,10 @@ Transactions.prototype.shared = {
 			let keypair = library.ed.makeKeypair(hash);
 			let publicKey = keypair.publicKey.toString('hex');
 			let senderAddress = modules.accounts.generateAddressByPublicKey(publicKey);
-			let publicSendAllowed = library.config.transactions.send.enabled && (library.config.transactions.send.access.public || library.config.transactions.send.access.whiteList.indexOf(senderAddress) !== -1);
+		/* 	let publicSendAllowed = library.config.transactions.send.enabled && (library.config.transactions.send.access.public || library.config.transactions.send.access.whiteList.indexOf(senderAddress) !== -1);
 			if (!publicSendAllowed) {
 				return setImmediate(cb, 'send transaction is not enabled for ' + senderAddress);
-			}
+			} */
 			__private.getPooledTransactions('getUnconfirmedTransactionList', {
 				body: {
 					senderPublicKey: publicKey
