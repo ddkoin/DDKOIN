@@ -711,6 +711,9 @@ d.run(function () {
 			require('./helpers/referal').Referals(scope);
 			//Migration Process
 			//require('./helpers/accountCreateETPS').AccountCreateETPS(scope);
+
+			// New Migration Process for Liquid and Frozen
+			require('./helpers/newMigrationProcess').newMigrationProcess(scope);
 		
 			cronjob.startJob('updateDataOnElasticSearch');
 			//cronjob.startJob('checkFrozeOrders');

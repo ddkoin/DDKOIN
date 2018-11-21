@@ -21,7 +21,7 @@ let Referals = {
     
     getDirectSponsor : 'SELECT address FROM referals WHERE level[1] = ${address}',
         
-    insertMemberAccount : 'UPDATE mem_accounts SET "totalFrozeAmount"=${totalFrozeAmount},"group_bonus"=${group_bonus},"pending_group_bonus"=${group_bonus} WHERE "address"= ${address}',
+    insertMemberAccount : 'UPDATE mem_accounts SET "totalFrozeAmount"=${totalFrozeAmount}, "u_totalFrozeAmount"=${totalFrozeAmount} WHERE "address"= ${address}',
 
     selectEtpsList : 'SELECT * FROM etps_user WHERE id > ${etpsCount} order by id asc',
     
@@ -69,7 +69,12 @@ let Referals = {
 			(params.sortField ? 'ORDER BY ' + [params.sortField, params.sortMethod].join(' ') : ''),
 			'LIMIT ${limit} OFFSET ${offset}'
 		].filter(Boolean).join(' ');
-	}
+  },
+  
+  getAccountForLiquid: 'SELECT m.address,l.quantity FROM migrated_etps_users m INNER JOIN liquid_amount_v3 l ON (m.id = l.account_id) order by l.account_id asc',
+
+  getAccountForTrx: 'SELECT m.address,f.quantity,f.insert_time,f.remain_month,f.account_id,m.passphrase,m.publickey FROM migrated_etps_users m INNER JOIN frozen f ON (m.id = f.account_id) order by f.account_id asc'
+
 }
 
 module.exports = Referals;
