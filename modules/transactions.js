@@ -783,7 +783,7 @@ Transactions.prototype.shared = {
 	},
 
 	getTransactionsCount: function (req, cb) {
-		library.db.query(sql.count).then(function (transactionsCount) {
+		library.dbReplica.query(sql.count).then(function (transactionsCount) {
 			return setImmediate(cb, null, {
 				confirmed: transactionsCount[0].count,
 				multisignature: __private.transactionPool.multisignature.transactions.length,
