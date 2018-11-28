@@ -9,12 +9,12 @@
   "basePath": "/",
   "tags": [
     {
-      "name": "Freeze",
-      "description": "API for Freeze"
-    },
-    {
       "name": "Account",
       "description": "API for Account"
+    },
+    {
+      "name": "Freeze",
+      "description": "API for Freeze"
     },
     {
       "name": "Transaction",
@@ -31,6 +31,104 @@
     "application/json"
   ],
   "paths": {
+    "/api/accounts": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "description": "Get Account Information",
+        "operationId": "findByAddress",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "query",
+            "description": "fetch balance",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "response",
+            "schema": {
+              "$ref": "#/definitions/response1"
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/totalSupply": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "description": "Returns the total supply",
+        "operationId": "totalSupply",
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "response",
+            "schema": {
+              "$ref": "#/definitions/response1"
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/getDashboardDDKData": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "description": "Get Account Information",
+        "operationId": "getDashboardData",
+        "produces": [
+          "application/json"
+        ],
+        "responses": {
+          "200": {
+            "description": "response",
+            "schema": {
+              "$ref": "#/definitions/response1"
+            }
+          }
+        }
+      }
+    },
+    "/api/accounts/delegates/": {
+      "get": {
+        "tags": [
+          "Account"
+        ],
+        "description": "Get Delegates Information",
+        "operationId": "findByAddress",
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "address",
+            "in": "query",
+            "description": "fetch balance",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "response",
+            "schema": {
+              "$ref": "#/definitions/response1"
+            }
+          }
+        }
+      }
+    },
     "/api/accounts/generatePublicKey": {
       "post": {
         "tags": [
@@ -57,35 +155,6 @@
             "description": "create response",
             "schema": {
               "$ref": "#/definitions/response"
-            }
-          }
-        }
-      }
-    },
-    "/api/accounts": {
-      "get": {
-        "tags": [
-          "Account"
-        ],
-        "description": "Get Account Information",
-        "operationId": "findByAddress",
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "address",
-            "in": "query",
-            "description": "fetch balance",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "response",
-            "schema": {
-              "$ref": "#/definitions/response1"
             }
           }
         }
@@ -227,7 +296,8 @@
           {
             "name": "address",
             "in": "body",
-            "description": "address is required",
+            "defaultValue": "{ \n    \"address:\" :  \"\", \n    \"token\" : \"\" \n}",
+            "description": "address and token required",
             "required": true,
             "schema": {
               "$ref": "#/definitions/create"
