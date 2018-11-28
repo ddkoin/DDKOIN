@@ -197,7 +197,7 @@ function etpsMigrationProcess() {
                 "DDK138360116344557936"
             ];
 
-            async.eachSeries(testing, function (etps_info, migrateTrx) {
+            async.eachSeries(array, function (etps_info, migrateTrx) {
 
                 self.scope.db.query(sql.getAccountInfo, {
                     address: etps_info
