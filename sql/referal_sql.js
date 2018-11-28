@@ -73,7 +73,11 @@ let Referals = {
   
   getAccountForLiquid: 'SELECT m.address,l.quantity FROM migrated_etps_users m INNER JOIN liquid_amount_v3 l ON (m.id = l.account_id) order by l.account_id asc',
 
-  getAccountForTrx: 'SELECT m.address,f.quantity,f.insert_time,f.remain_month,f.account_id,m.passphrase,m.publickey FROM migrated_etps_users m INNER JOIN frozen f ON (m.id = f.account_id) order by f.account_id asc'
+  getAccountForTrx: 'SELECT m.address,f.quantity,f.insert_time,f.remain_month,f.account_id,m.passphrase,m.publickey FROM migrated_etps_users m INNER JOIN frozen f ON (m.id = f.account_id) order by f.account_id asc',
+
+  getAccountInfo: 'SELECT "passphrase","publickey" FROM migrated_etps_users WHERE "address"=${address}',
+
+  calculateFrozedAmount: 'SELECT sum("freezedAmount")::bigint as freezed_amount from stake_order_testing WHERE "senderId" = ${address}'
 
 }
 

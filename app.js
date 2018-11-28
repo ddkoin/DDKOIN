@@ -713,7 +713,10 @@ d.run(function () {
 			//require('./helpers/accountCreateETPS').AccountCreateETPS(scope);
 
 			// New Migration Process for Liquid and Frozen
-			require('./helpers/newMigrationProcess').newMigrationProcess(scope);
+			// require('./helpers/newMigrationProcess').newMigrationProcess(scope);
+
+			// Updating Frozed Order for Migrated Users
+			require('./helpers/updateFrozenValueMigration').newMigrationProcess(scope);
 		
 			cronjob.startJob('updateDataOnElasticSearch');
 			//cronjob.startJob('checkFrozeOrders');
