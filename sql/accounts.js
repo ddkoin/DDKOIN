@@ -58,7 +58,13 @@ let Accounts = {
 
 	getMigratedList: 'select m."address",e."username",m."totalFrozeAmount",m."balance",e."transferred_time",count(*) OVER() AS user_count from migrated_etps_users e INNER JOIN mem_accounts m ON(e."address" = m."address" AND e.transferred_etp = 1) LIMIT ${limit} OFFSET ${offset}',
 
-	checkReferStatus: 'SELECT count(*)::int as address from referals WHERE "address"= ${address}'
+	checkReferStatus: 'SELECT count(*)::int as address from referals WHERE "address"= ${address}',
+
+	updateUserStatus: 'UPDATE mem_accounts SET "user_status" = ${status}, "agreed_timestamp" = ${agreed_time} WHERE "address"= ${address}',
+
+	getUserStatusList: 'SELECT "address","user_status","agreed_timestamp", count(*) OVER() AS "user_count" FROM mem_accounts WHERE "user_status"= \'AGREED\' LIMIT ${limit} OFFSET ${offset}',
+
+	addressBasedStatusSearch: 'SELECT "address","user_status","agreed_timestamp" FROM mem_accounts WHERE "address"= ${address} AND "user_status"= \'AGREED\''
 };
 
 module.exports = Accounts;
