@@ -22,6 +22,19 @@
  * @module app
  */
 
+var apm = require('elastic-apm-node').start({
+  // Overwrite service name from package.json
+   //Allowed characters: a-z, A-Z, 0-9, -, _, and space
+   serviceName: 'DDKOIN-Core',
+
+  // Use if APM Server requires a token
+  secretToken: '',
+
+  // Set custom APM Server URL (default: http://localhost:8200)
+  serverUrl: 'http://159.65.139.247:8200',
+})
+
+
 //Requiring Modules
 require('dotenv').config();
 require('auto-strict');
@@ -292,7 +305,7 @@ d.run(function () {
 			});
 			swagger.configureSwaggerPaths('', 'api-docs', '');
 			let domain = scope.config.swaggerDomain || 'localhost';
-			let applicationUrl = 'http://' + domain;
+			let applicationUrl = 'https://' + domain;
 			swagger.configure(applicationUrl, '1.0.0');
 
 			if (appConfig.coverage) {
@@ -700,6 +713,7 @@ d.run(function () {
 			require('./helpers/referal').Referals(scope);
 			//Migration Process
 			//require('./helpers/accountCreateETPS').AccountCreateETPS(scope);
+
 		
 			cronjob.startJob('updateDataOnElasticSearch');
 			//cronjob.startJob('checkFrozeOrders');
