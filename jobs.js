@@ -4,7 +4,11 @@ let utils = require('./utils');
 let sql = require('./sql/accounts.js');
 let path = require('path');
 let library = {};
-
+let columnName = '';
+let offset = 0;
+let blockOffset = 0;
+let stakeOffset = 0;
+let limit = 30000;
 
 exports.attachScope = function (scope) {
 	library = scope;
@@ -32,8 +36,9 @@ exports.updateDataOnElasticSearch = {
 
 	on: '* * * * *',
 	job: function () {
-		let dbTables = [
-			'blocks_list',
+		/**
+		 * Tables to be updated on elasticsearch 
+		 * 'blocks_list',
 			'dapps',
 			'delegates',
 			'mem_accounts',
@@ -48,33 +53,49 @@ exports.updateDataOnElasticSearch = {
 			'intransfer',
 			'outtransfer',
 			'multisignatures'
+		*/
+		let dbTables = [
+			'blocks_list',
+			'stake_orders'
 		];
-
 		dbTables.forEach(function (tableName) {
-			library.db.query('SELECT * FROM ' + tableName)
-				.then(function (rows) {
-					if (rows.length > 0) {
-						let bulk = utils.makeBulk(rows, tableName);
-						utils.indexall(bulk, tableName)
-							.then(function (result) {
-								return null;
-								//FIXME: Do further processing on successful indexing on elasticsearch server
-							})
-							.catch(function (err) {
-								library.logger.error('elasticsearch error :'+ err.message);
-								return null;
-							});
+			console.log('offset : ', offset);
+			if(tableName === 'blocks_list') {
+				columnName = 'b_timestamp';
+				offset = blockOffset;
+			} else {
+				columnName = 'startTime';
+				offset = stakeOffset;
+			}
+			library.db.query('SELECT * FROM ' + tableName + ' ORDER BY "' + columnName + '" ASC OFFSET ' + offset + ' LIMIT ' + limit)
+			.then(function (rows) {
+				console.log('rows.length : ', rows.length);
+				if (rows.length > 0) {
+					if(tableName === 'blocks_list') {
+						blockOffset = blockOffset + rows.length;
+					} else {
+						stakeOffset = stakeOffset + rows.length;
 					}
-				})
-				.catch(function (err) {
-					library.logger.error('database error : '+ err.message);
-					return null;
-				});
+					let bulk = utils.makeBulk(rows, tableName);
+					utils.indexall(bulk, tableName)
+						.then(function (result) {
+							return null;
+							//FIXME: Do further processing on successful indexing on elasticsearch server
+						})
+						.catch(function (err) {
+							library.logger.error('elasticsearch error :'+ err.message);
+							return null;
+						});
+				}
+			})
+			.catch(function (err) {
+				library.logger.error('database error : '+ err.message);
+				return null;
+			});
 		});
 	},
 	spawn: false
 };
-
 /** 
  * @desc checks pending stake rewards functionality every day at mid night.
 */
