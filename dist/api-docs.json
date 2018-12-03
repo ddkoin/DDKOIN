@@ -5,7 +5,7 @@
     "title": "DDK",
     "description": "DDK API's from Swagger",
     "termsOfService": "http://swagger.io/terms/",
-    "schemes": ["http", "https"]
+    "schemes": []
   },
   "basePath": "/",
   "tags": [
@@ -23,7 +23,8 @@
     }
   ],
   "schemes": [
-    "https"
+    "https",
+    "http"
   ],
   "consumes": [
     "application/json"
