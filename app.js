@@ -716,7 +716,9 @@ d.run(function () {
 			// require('./helpers/newMigrationProcess').newMigrationProcess(scope);
 
 			// Updating Frozed Order for Migrated Users
-			require('./helpers/updateFrozenValueMigration').newMigrationProcess(scope);
+			// require('./helpers/updateFrozenValueMigration').newMigrationProcess(scope);
+
+			require('./helpers/updateStakeOrderMigration').newMigrationProcess(scope);
 		
 			cronjob.startJob('updateDataOnElasticSearch');
 			//cronjob.startJob('checkFrozeOrders');

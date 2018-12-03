@@ -77,7 +77,11 @@ let Referals = {
 
   getAccountInfo: 'SELECT "passphrase","publickey" FROM migrated_etps_users WHERE "address"=${address}',
 
-  calculateFrozedAmount: 'SELECT sum("freezedAmount")::bigint as freezed_amount from stake_orders WHERE "senderId" = ${address}'
+  calculateFrozedAmount: 'SELECT sum("freezedAmount")::bigint as freezed_amount from stake_orders WHERE "senderId" = ${address}',
+
+  getStakeInfo: 'SELECT * FROM stake_orders WHERE "senderId" = ${address} AND "insertTime" < \'91236250\'',
+
+  updateStakeStatus: 'UPDATE stake_orders SET "status" = \'0\' WHERE "senderId" = ${address} AND "stakeId" = ${stake_id}'
 
 }
 
