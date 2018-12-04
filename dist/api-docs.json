@@ -445,7 +445,7 @@
           {
             "name": "secret",
             "in": "body",
-            "defaultValue": "{\n    \"secret\": \"\",\n    \"stakeId\" : \"\", \n    \"recipientId\": \"\"\n}",
+            "defaultValue": "{\n    \"secret\": \"\",\n    \"stakeId\" : \"\", \n    \"recipientId\": \"\",\n    \"freezedAmount\": \"\"\n}",
             "description": "sendOrder",
             "required": true,
             "schema": {
