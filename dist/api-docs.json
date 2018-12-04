@@ -438,7 +438,7 @@
           {
             "name": "secret",
             "in": "body",
-            "defaultValue": "{\n \"secret\": \"wagon stock borrow episode laundry kitten salute link globe zero feed marble\",\n \"frozeId\" : \"12875263579474998903\", \n \"recipientId\": \"5750074725018427566E\"\n}",
+            "defaultValue": "{\n    \"secret\": \"\",\n    \"stakeId\" : \"\", \n    \"recipientId\": \"\"\n}",
             "description": "sendOrder",
             "required": true,
             "schema": {
@@ -535,35 +535,6 @@
             "name": "none",
             "in": "query",
             "description": "Get count of active stakeholders",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "create response",
-            "schema": {
-              "$ref": "#/definitions/response"
-            }
-          }
-        }
-      }
-    },
-    "/api/frogings/getTotalETPStaked": {
-      "get": {
-        "tags": [
-          "Freeze"
-        ],
-        "description": "sum of DDK staked",
-        "operationId": "for the URL",
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "none",
-            "in": "query",
-            "description": "Get total DDK staked",
             "required": false,
             "type": "string"
           }
