@@ -111,6 +111,13 @@
             "description": "fetch balance",
             "required": true,
             "type": "string"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "description": "user token",
+            "required": true,
+            "type": "string"
           }
         ],
         "responses": {
@@ -414,7 +421,7 @@
           {
             "name": "data",
             "in": "body",
-            "defaultValue": "{\n    \"secret\": \"\",\n    \"frozeId\" : \"\", \n    \"recipientId\": \"\"\n}",
+            "defaultValue": "{\n    \"secret\": \"\",\n    \"stakeId\" : \"\", \n    \"recipientId\": \"\",\n    \"freezedAmount\": \"\"\n}",
             "description": "sendOrder",
             "required": true,
             "schema": {
