@@ -59,7 +59,6 @@ exports.updateDataOnElasticSearch = {
 			'stake_orders'
 		];
 		dbTables.forEach(function (tableName) {
-			console.log('offset : ', offset);
 			if(tableName === 'blocks_list') {
 				columnName = 'b_timestamp';
 				offset = blockOffset;
@@ -69,7 +68,6 @@ exports.updateDataOnElasticSearch = {
 			}
 			library.db.query('SELECT * FROM ' + tableName + ' ORDER BY "' + columnName + '" ASC OFFSET ' + offset + ' LIMIT ' + limit)
 			.then(function (rows) {
-				console.log('rows.length : ', rows.length);
 				if (rows.length > 0) {
 					if(tableName === 'blocks_list') {
 						blockOffset = blockOffset + rows.length;

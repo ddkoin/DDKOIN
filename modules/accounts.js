@@ -423,6 +423,10 @@ Accounts.prototype.shared = {
 				return setImmediate(cb, err[0].message);
 			}
 
+			if (!req.body.secret || req.body.secret.trim().split(/\s+/g).length < 12) {
+				return setImmediate(cb, 'Passphrase must consist of 12 or more words.');
+			}
+
 			__private.openAccount(req.body.secret, function (err, account) {
 				if (!err) {
 

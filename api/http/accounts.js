@@ -72,8 +72,8 @@ function AccountsHttpApi (accountsModule, app) {
 
 	router.map(accountsModule.internal, {
 		'get /count': 'count',
-		'get /lock': 'lockAccount',
-		'get /unlock': 'unlockAccount',
+		'post /lock': 'lockAccount',
+		'post /unlock': 'unlockAccount',
 		'post /logout': 'logout',
 		'post /generateQRCode': 'generateQRCode',
 		'post /verifyOTP': 'verifyOTP',
