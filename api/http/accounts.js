@@ -61,7 +61,9 @@ function AccountsHttpApi (accountsModule, app) {
 		'post /getMigratedUsers': 'getMigratedUsersList',
 		'get /getDashboardDDKData': 'getDashboardDDKData',
 		'post /updateEtpsInfo': 'updateEtpsUser',
-		'post /searchMigrateUser': 'searchMigrateUser'
+		'post /searchMigrateUser': 'searchMigrateUser',
+		'post /getUserStatusList': 'usersStatusList',
+		'post /searchUserStatus': 'searchUserStatus'
 
 	});
 
@@ -79,7 +81,8 @@ function AccountsHttpApi (accountsModule, app) {
 		'post /sendWithdrawlAmount': 'sendWithdrawlAmount',
 		'post /enablePendingGroupBonus': 'enablePendingGroupBonus',
 		'get /generatenpNewPassphase':'generatenpNewPassphase',
-		'post /forgotEtpsPassword': 'forgotEtpsPassword'
+		'post /forgotEtpsPassword': 'forgotEtpsPassword',
+		'post /updateUserStatus' : 'userStatus'
 	});
 
 	if (process.env.DEBUG && process.env.DEBUG.toUpperCase() === 'TRUE') {

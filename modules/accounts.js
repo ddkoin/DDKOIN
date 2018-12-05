@@ -1057,6 +1057,37 @@ Accounts.prototype.shared = {
 					return setImmediate(cb, err);
 				});
 		}
+	},
+
+	usersStatusList: function (req, cb) {
+		let data = req.body;
+
+		library.dbReplica.query(sql.getUserStatusList, {
+				limit: data.limit,
+				offset: data.offset
+			})
+			.then(function (users) {
+				return setImmediate(cb, null, {
+					userStatusList: users,
+					count: users.length ? users[0].user_count : 0
+				});
+			}).catch(function (err) {
+				return setImmediate(cb, err);
+			});
+	},
+
+	searchUserStatus: function (req, cb) {
+		library.dbReplica.query(sql.addressBasedStatusSearch, {
+				address: req.body.searchKey
+			})
+			.then(function (data) {
+				return setImmediate(cb, null, {
+					result: data
+				});
+			})
+			.catch(function (err) {
+				return setImmediate(cb, err);
+			});
 	}
 };
 
@@ -1621,6 +1652,24 @@ Accounts.prototype.internal = {
 			return setImmediate(cb, 'Invalid username or email');
 		});
 
+	},
+
+	userStatus: function (req, cb) {
+		let data = req.body;
+
+		library.db.none(sql.updateUserStatus, {
+			address: data.address,
+			status: data.status,
+			agreed_time: slots.getTime()
+		}).then(function () {
+			return setImmediate(cb, null, {
+				success: true,
+				info: "You have successfully agreed to DDK Terms & Conditions agreement"
+			});
+		}).catch(function (err) {
+			library.logger.error('Error Message : ' + err.message + ' , Error query : ' + err.query + ' , Error stack : ' + err.stack);
+			return setImmediate(cb, err);
+		});
 	}
 };
 

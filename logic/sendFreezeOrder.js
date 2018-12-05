@@ -228,7 +228,8 @@ SendFreezeOrder.prototype.apply = function (trs, block, sender, cb) {
 				senderId: trs.senderId,
 				recipientId: trs.recipientId,
 				stakeId: trs.stakeId,
-				stakeOrder: order
+				stakeOrder: order,
+				trsId: trs.id
 			}, function (err) {
 
 				if (err) {
@@ -358,7 +359,7 @@ SendFreezeOrder.prototype.sendFreezedOrder = function (userAndOrderData, cb) {
 				//create new froze order according to send order
 				self.scope.db.none(sql.createNewFrozeOrder,
 					{
-						id: order.id,
+						id: userAndOrderData.trsId,
 						startTime: order.startTime,
 						insertTime: order.insertTime,
 						senderId: userAndOrderData.recipientId,

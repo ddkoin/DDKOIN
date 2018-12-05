@@ -78,6 +78,13 @@ function Account(db, dbReplica, schema, logger, cb) {
 			immutable: true
 		},
 		{
+			name: 'user_status',
+			type: 'String',
+			filter: {
+				type: 'string'
+			}
+		},
+		{
 			name: 'isDelegate',
 			type: 'SmallInt',
 			filter: {

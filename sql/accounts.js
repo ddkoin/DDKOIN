@@ -70,7 +70,13 @@ let Accounts = {
 
 	usernameBasedSearch: 'SELECT e."username",e."address",e."transferred_time",m."totalFrozeAmount" FROM migrated_etps_users e INNER JOIN mem_accounts m ON(e."username" = ${username} AND m."address" = e."address" AND e.transferred_etp = 1)',
 
-	checkVoteCount: 'SELECT count("id") FROM stake_orders WHERE "senderId" = ${senderId} AND "status" = 1 AND "voteCount" IN (3 , 7, 11, 15, 19, 23)'
+	checkVoteCount: 'SELECT count("id") FROM stake_orders WHERE "senderId" = ${senderId} AND "status" = 1 AND "voteCount" IN (3 , 7, 11, 15, 19, 23)',
+
+	updateUserStatus: 'UPDATE mem_accounts SET "user_status" = ${status}, "agreed_timestamp" = ${agreed_time} WHERE "address"= ${address}',
+
+	getUserStatusList: 'SELECT "address","user_status","agreed_timestamp", count(*) OVER() AS "user_count" FROM mem_accounts WHERE "user_status"= \'AGREED\' order by agreed_timestamp DESC LIMIT ${limit} OFFSET ${offset}',
+
+	addressBasedStatusSearch: 'SELECT "address","user_status","agreed_timestamp" FROM mem_accounts WHERE "address"= ${address} AND "user_status"= \'AGREED\''
 };
 
 module.exports = Accounts;
