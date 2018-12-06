@@ -68,7 +68,7 @@ Vote.prototype.create = function (data, trs) {
  * @return {number} fee
  */
 Vote.prototype.calculateFee = function (trs, sender) {
-	return (parseInt(sender.totalFrozeAmount) * constants.fees.vote) / 100;
+	return parseInt((parseInt(sender.totalFrozeAmount) * constants.fees.vote) / 100);
 };
 
 /**
