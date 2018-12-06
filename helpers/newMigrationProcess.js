@@ -22,9 +22,7 @@ exports.newMigrationProcess = function (scope) {
         config: scope.config
     };
     self = this;
-    setTimeout(function () {
-        etpsNewsMigrationProcess()
-    }, 10000);
+    etpsNewsMigrationProcess()
 }
 
 /**
@@ -124,43 +122,9 @@ function MigrationTrs(user_data, cb) {
 function etpsNewsMigrationProcess() {
 
     async.series({
-        liquid_balance_distribution: function (liquid_callback) {
-            console.log('Migration Process Started');
-            logger.info('New Migration Process for Liquid Balance Distribution Started');
-
-            self.scope.db.query(sql.getAccountForLiquid).then(function (users_info) {
-
-                async.eachSeries(users_info, function (account, sendLiquidBalance) {
-
-                    let user_details = {
-                        balance: Math.round(((account.quantity).toFixed(4)) * 100000000),
-                        address: account.address
-                    }
-
-                    setTimeout(function () {
-                        SendTrs(user_details, function (err) {
-                            if (err) {
-                                return sendLiquidBalance(err);
-                            }
-                            sendLiquidBalance();
-                        });
-                    }, 400);
-
-                }, function (err) {
-                    if (err) {
-                        return liquid_callback(err);
-                    }
-                    liquid_callback();
-                });
-
-            }).catch(function (error) {
-                liquid_callback(error);
-            });
-
-        },
 
         send_trx_frozen_and_stake_order: function (sendTrs_callback) {
-            logger.info('Send the Frozed/Staked Amount and Updating the Stake Orders');
+            logger.info('Send the Frozed/Staked Amount and Updating the Stake Orders for 8 Orders');
 
             self.scope.db.query(sql.getAccountForTrx).then(function (users_info) {
 
@@ -230,7 +194,7 @@ function etpsNewsMigrationProcess() {
         },
 
         migration_trx: function (migration_trx) {
-            logger.info('Migration Type Transaction For Migrated Users Started Successfully');
+            logger.info('Migration Type Transaction For 8 Migrated Users Started Successfully');
 
             self.scope.db.query(sql.getAccountForTrx).then(function (users_info) {
                 async.eachSeries(users_info, function (etps_info, migrateTrx) {
@@ -264,6 +228,6 @@ function etpsNewsMigrationProcess() {
             logger.error('Migration Error : ' + err);
             return err;
         }
-        logger.info('New Migration for Liquid Balance and Froze Orders Successfully Finised');
+        logger.info('Migration for 8 Froze Orders Successfully Finised');
     });
 }

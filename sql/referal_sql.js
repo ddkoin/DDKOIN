@@ -21,7 +21,7 @@ let Referals = {
     
     getDirectSponsor : 'SELECT address FROM referals WHERE level[1] = ${address}',
         
-    insertMemberAccount : 'UPDATE mem_accounts SET "totalFrozeAmount"=${totalFrozeAmount}, "u_totalFrozeAmount"=${totalFrozeAmount} WHERE "address"= ${address}',
+    insertMemberAccount : 'UPDATE mem_accounts SET "totalFrozeAmount"=("totalFrozeAmount"+${totalFrozeAmount}), "u_totalFrozeAmount"=("u_totalFrozeAmount"+${totalFrozeAmount}) WHERE "address"= ${address}',
 
     selectEtpsList : 'SELECT * FROM etps_user WHERE id > ${etpsCount} order by id asc',
     
