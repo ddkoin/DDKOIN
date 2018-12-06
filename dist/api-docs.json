@@ -10,16 +10,16 @@
   "basePath": "/",
   "tags": [
     {
-      "name": "Freeze",
-      "description": "API for Freeze"
+      "name": "freeze",
+      "description": "API for freeze"
     },
     {
-      "name": "Account",
-      "description": "API for Account"
+      "name": "account",
+      "description": "API for account"
     },
     {
-      "name": "Transaction",
-      "description": "API for Transaction"
+      "name": "transaction",
+      "description": "API for transaction"
     }
   ],
   "schemes": [
@@ -36,17 +36,18 @@
     "/api/accounts/generatePublicKey": {
       "post": {
         "tags": [
-          "Account"
+          "account"
         ],
-        "description": "generatePublicKey",
-        "operationId": "for the URL",
+        "description": "Generates public key for given secret",
+        "operationId": "generatePublicKey",
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
-            "name": "secret",
+            "name": "data",
             "in": "body",
+            "defaultValue": "{\n    \"secret\": \"\"\n}", 
             "description": "generatePublicKey",
             "required": true,
             "schema": {
@@ -67,9 +68,9 @@
     "/api/accounts": {
       "get": {
         "tags": [
-          "Account"
+          "account"
         ],
-        "description": "Get Account Information",
+        "description": "Get account Information",
         "operationId": "findByAddress",
         "produces": [
           "application/json"
@@ -96,7 +97,7 @@
     "/api/accounts/getBalance": {
       "get": {
         "tags": [
-          "Account"
+          "account"
         ],
         "description": "Returns the balance of account",
         "operationId": "findByAddress",
@@ -132,17 +133,18 @@
     "/api/accounts/open": {
       "post": {
         "tags": [
-          "Account"
+          "account"
         ],
-        "description": "Open An Account",
-        "operationId": "for the URL",
+        "description": "Open An account",
+        "operationId": "open",
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
-            "name": "secret",
+            "name": "data",
             "in": "body",
+            "defaultValue": "{\n    \"secret\": \"\"\n}",
             "description": "generatePublicKey",
             "required": true,
             "schema": {
@@ -163,17 +165,18 @@
     "/api/accounts/lock": {
       "post": {
         "tags": [
-          "Account"
+          "account"
         ],
-        "description": "Lock User's Account",
+        "description": "Lock User's account",
         "operationId": "Lock",
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
-            "name": "address",
+            "name": "data",
             "in": "body",
+            "defaultValue": "{\n    \"address\": \"\"\n}",
             "description": "address is required",
             "required": true,
             "schema": {
@@ -194,17 +197,18 @@
     "/api/accounts/unlock": {
       "post": {
         "tags": [
-          "Account"
+          "account"
         ],
-        "description": "Unlock User's Account",
-        "operationId": "Unlock",
+        "description": "Unlock User's account",
+        "operationId": "unlock",
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
-            "name": "address",
+            "name": "data",
             "in": "body",
+            "defaultValue": "{\n    \"address\": \"\"\n}",
             "description": "address is required",
             "required": true,
             "schema": {
@@ -225,17 +229,18 @@
     "/api/accounts/logout": {
       "post": {
         "tags": [
-          "Account"
+          "account"
         ],
         "description": "Logout a User",
-        "operationId": "Logout",
+        "operationId": "logout",
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
-            "name": "address",
+            "name": "data",
             "in": "body",
+            "defaultValue": "{\n    \"address\": \"\",\n    \"token\": \"\"\n}",
             "description": "address is required",
             "required": true,
             "schema": {
@@ -253,41 +258,12 @@
         }
       }
     },
-    "/api/accounts/getCirculatingSupply": {
-      "get": {
-        "tags": [
-          "Account"
-        ],
-        "description": "Circulating Supply",
-        "operationId": "none",
-        "produces": [
-          "application/json"
-        ],
-        "parameters": [
-          {
-            "name": "none",
-            "in": "query",
-            "description": "fetch circulating supply",
-            "required": false,
-            "type": "string"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "response",
-            "schema": {
-              "$ref": "#/definitions/response1"
-            }
-          }
-        }
-      }
-    },
     "/api/transactions/get": {
       "get": {
         "tags": [
-          "Transaction"
+          "transaction"
         ],
-        "description": "Get list of Transactions",
+        "description": "Get list of transactions",
         "operationId": "findById",
         "produces": [
           "application/json"
@@ -296,7 +272,7 @@
           {
             "name": "id",
             "in": "query",
-            "description": "Get list of Transactions",
+            "description": "Get list of transactions",
             "required": true,
             "type": "string"
           }
@@ -314,10 +290,10 @@
     "/api/transactions/unconfirmed/get": {
       "get": {
         "tags": [
-          "Transaction"
+          "transaction"
         ],
-        "description": "Get unconfirmed Transactions",
-        "operationId": "findById",
+        "description": "Get unconfirmed transactions",
+        "operationId": "findUnconfirmedById",
         "produces": [
           "application/json"
         ],
@@ -325,7 +301,7 @@
           {
             "name": "id",
             "in": "query",
-            "description": "Get unconfirmed Transactions",
+            "description": "Get unconfirmed transactions",
             "required": true,
             "type": "string"
           }
@@ -343,10 +319,10 @@
     "/api/transactions": {
       "get": {
         "tags": [
-          "Transaction"
+          "transaction"
         ],
-        "description": "Get List of Transactions",
-        "operationId": "findByblockIdsenderIdrecipientId",
+        "description": "Get List of transactions",
+        "operationId": "findByBlockId",
         "produces": [
           "application/json"
         ],
@@ -354,7 +330,7 @@
           {
             "name": "blockId",
             "in": "query",
-            "description": "Get List of Transactions",
+            "description": "Get List of transactions",
             "required": true,
             "type": "string"
           }
@@ -370,18 +346,18 @@
       },
       "put": {
         "tags": [
-          "Transaction"
+          "transaction"
         ],
-        "description": "Send Transaction",
-        "operationId": "for the URL",
+        "description": "Send transaction",
+        "operationId": "send",
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
-            "name": "secret,amount, \n reciepientId,publicKey \n,secondSecret",
+            "name": "data",
             "in": "body",
-            "defaultValue": "{ \n \"secret\" : \"wagon stock borrow episode laundry kitten salute link globe zero feed marble\", \n \"amount\" : 100000000,\n \"recipientId\" : \"4995063339468361088E\"\n}",
+            "defaultValue": "{ \n    \"secret\" : \"\", \n    \"amount\" : \"\",\n    \"recipientId\" : \"\"\n}",
             "description": "generatePublicKey",
             "required": true,
             "schema": {
@@ -402,18 +378,18 @@
     "/api/frogings/freeze": {
       "post": {
         "tags": [
-          "Freeze"
+          "freeze"
         ],
         "description": "freeze order",
-        "operationId": "for the URL",
+        "operationId": "freeze",
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
-            "name": "secret",
+            "name": "data",
             "in": "body",
-            "defaultValue": "{\n \"secret\": \"wagon stock borrow episode laundry kitten salute link globe zero feed marble\",\n \"freezedAmount\" : 6000000000, \n \"publicKey\": \"c094ebee7ec0c50ebee32918655e089f6e1a604b83bcaa760293c61e0f18ab6f\"\n}",
+            "defaultValue": "{\n    \"secret\": \"\",\n    \"freezedAmount\" : \"\", \n    \"publicKey\": \"\"\n}",
             "description": "freezeOrder",
             "required": true,
             "schema": {
@@ -431,19 +407,19 @@
         }
       }
     },
-    "/api/shiftOrder/sendFreezeOrder": {
+    "/api/shiftOrder/sendfreezeOrder": {
       "post": {
         "tags": [
-          "Freeze"
+          "freeze"
         ],
-        "description": "SendFreezeOrder",
-        "operationId": "for the URL",
+        "description": "Send freeze order",
+        "operationId": "sendFreezeOrder",
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
-            "name": "secret",
+            "name": "data",
             "in": "body",
             "defaultValue": "{\n    \"secret\": \"\",\n    \"stakeId\" : \"\", \n    \"recipientId\": \"\",\n    \"freezedAmount\": \"\"\n}",
             "description": "sendOrder",
@@ -464,20 +440,19 @@
       }
     },
     "/api/frogings/getAllOrders": {
-      "post": {
+      "get": {
         "tags": [
-          "Freeze"
+          "freeze"
         ],
-        "description": "get all freeze orders",
-        "operationId": "for the URL",
+        "description": "get all freezed orders",
+        "operationId": "getAllOrders",
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
             "name": "secret",
-            "in": "body",
-            "defaultValue": "{\n \"secret\": \"wagon stock borrow episode laundry kitten salute link globe zero feed marble\"\n}",
+            "in": "query",
             "description": "secret of freeze order account",
             "required": true,
             "schema": {
@@ -496,20 +471,19 @@
       }
     },
     "/api/frogings/getAllActiveOrders": {
-      "post": {
+      "get": {
         "tags": [
-          "Freeze"
+          "freeze"
         ],
         "description": "get all active freeze orders",
-        "operationId": "for the URL",
+        "operationId": "getAllActiveOrders",
         "produces": [
           "application/json"
         ],
         "parameters": [
           {
             "name": "secret",
-            "in": "body",
-            "defaultValue": "{\n \"secret\": \"wagon stock borrow episode laundry kitten salute link globe zero feed marble\"\n}",
+            "in": "query",
             "description": "secret of freeze order account",
             "required": true,
             "schema": {
@@ -530,10 +504,10 @@
     "/api/frogings/countStakeholders": {
       "get": {
         "tags": [
-          "Freeze"
+          "freeze"
         ],
         "description": "count Stakeholders",
-        "operationId": "for the URL",
+        "operationId": "countStakeholders",
         "produces": [
           "application/json"
         ],
