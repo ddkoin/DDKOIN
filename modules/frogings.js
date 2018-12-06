@@ -257,15 +257,26 @@ Frogings.prototype.shared = {
 					return setImmediate(cb, 'Address of account not found');
 				}
 
-				library.db.query(sql.getFrozeOrders, { senderId: account.address })
-				.then(function (rows) {
-					return setImmediate(cb, null, {
-						freezeOrders: JSON.stringify(rows)
+				library.db.query(sql.getFrozeOrdersCount, { senderId: account.address })
+					.then(function (rows) {
+						let count = rows.length ? rows[0].count : 0;
+
+						library.db.query(sql.getFrozeOrders, { senderId: account.address })
+							.then(function (rows) {
+
+								return setImmediate(cb, null, {
+									freezeOrders: JSON.stringify(rows),
+									count: count
+								});
+							})
+							.catch(function (err) {
+								return setImmediate(cb, err);
+							});
+					})
+					.catch(function (err) {
+						return setImmediate(cb, err);
 					});
-				})
-				.catch(function (err) {
-					return setImmediate(cb, err);
-				});
+
 			});
 		});
 	},
