@@ -32,7 +32,7 @@ let FrogingsSql = {
 
 	deductFrozeAmount: 'UPDATE mem_accounts SET "totalFrozeAmount" = ("totalFrozeAmount" - ${FrozeAmount}) WHERE "address" = ${senderId}',
 
-	getFrozeOrders: 'SELECT * FROM stake_orders WHERE "senderId"=${senderId} ORDER BY "insertTime" DESC',
+	getFrozeOrders: 'SELECT * FROM stake_orders WHERE "senderId"=${senderId} ORDER BY "insertTime" DESC LIMIT ${limit} OFFSET ${offset}',
 
 	getFrozeOrdersCount: 'SELECT count(*) FROM stake_orders WHERE "senderId"=${senderId}',
 

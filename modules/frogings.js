@@ -261,7 +261,7 @@ Frogings.prototype.shared = {
 					.then(function (rows) {
 						let count = rows.length ? rows[0].count : 0;
 
-						library.db.query(sql.getFrozeOrders, { senderId: account.address })
+						library.db.query(sql.getFrozeOrders, { senderId: account.address, limit: req.body.limit, offset: req.body.offset })
 							.then(function (rows) {
 
 								return setImmediate(cb, null, {
