@@ -180,7 +180,7 @@ Accounts.prototype.referralLinkChain = function (referalLink, address, cb) {
 
 		function (valid_referral) {
 			if (referrer_address) {
-				library.db.one(sql.validateReferSource, {
+				library.dbReplica.one(sql.validateReferSource, {
 					referSource: referrer_address
 				}).then(function (user) {
 					if (parseInt(user.address)) {
@@ -1044,7 +1044,7 @@ Accounts.prototype.shared = {
 					return setImmediate(cb, err);
 				});
 		} else {
-			//saerch based on email
+			//search based on Username
 			library.dbReplica.query(sql.usernameBasedSearch, {
 				username: query
 			})
@@ -1088,7 +1088,38 @@ Accounts.prototype.shared = {
 			.catch(function (err) {
 				return setImmediate(cb, err);
 			});
-	}
+	},
+
+	unMigratedUsersList: function (req, cb) {
+			library.dbReplica.query(sql.getUnMigratedList, {
+					limit: req.body.limit,
+					offset: req.body.offset
+				})
+				.then(function (users) {
+					return setImmediate(cb, null, {
+						unMigratedList: users,
+						count: users.length ? users[0].user_count : 0
+					});
+				}).catch(function (err) {
+					return setImmediate(cb, err);
+				});
+		},
+
+		searchUnMigrateUser: function (req, cb) {
+			var query = req.body.searchKey;
+			//search based on Username
+			library.dbReplica.query(sql.unMigratedUserSearch, {
+					username: query
+				})
+				.then(function (data) {
+					return setImmediate(cb, null, {
+						result: data
+					});
+				})
+				.catch(function (err) {
+					return setImmediate(cb, err);
+				});
+		}
 };
 
 // Internal API

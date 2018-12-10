@@ -48,7 +48,10 @@ CREATE TABLE IF NOT EXISTS "mem_accounts"(
   "referralLink" VARCHAR(100),
   "group_bonus" BIGINT DEFAULT 0,
   "pending_group_bonus" BIGINT DEFAULT 0,
-  "introducer" VARCHAR(25)
+  "introducer" VARCHAR(25),
+  "user_status" VARCHAR(20),
+  "agreed_timestamp" int,
+  "u_totalFrozeAmount" BIGINT DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS "mem_accounts_balance" ON "mem_accounts"("balance");

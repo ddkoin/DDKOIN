@@ -63,7 +63,9 @@ function AccountsHttpApi (accountsModule, app) {
 		'post /updateEtpsInfo': 'updateEtpsUser',
 		'post /searchMigrateUser': 'searchMigrateUser',
 		'post /getUserStatusList': 'usersStatusList',
-		'post /searchUserStatus': 'searchUserStatus'
+		'post /searchUserStatus': 'searchUserStatus',
+		'post /getUnMigratedUsers' : 'unMigratedUsersList',
+		'post /searchUnMigratedUser' : 'searchUnMigrateUser'
 
 	});
 

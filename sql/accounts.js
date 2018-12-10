@@ -76,7 +76,11 @@ let Accounts = {
 
 	getUserStatusList: 'SELECT "address","user_status","agreed_timestamp", count(*) OVER() AS "user_count" FROM mem_accounts WHERE "user_status"= \'AGREED\' order by agreed_timestamp DESC LIMIT ${limit} OFFSET ${offset}',
 
-	addressBasedStatusSearch: 'SELECT "address","user_status","agreed_timestamp" FROM mem_accounts WHERE "address"= ${address} AND "user_status"= \'AGREED\''
+	addressBasedStatusSearch: 'SELECT "address","user_status","agreed_timestamp" FROM mem_accounts WHERE "address"= ${address} AND "user_status"= \'AGREED\'',
+
+	getUnMigratedList: 'SELECT e."username",m."totalFrozeAmount",count(*) OVER() AS "user_count" FROM migrated_etps_users e INNER JOIN mem_accounts m ON(e."address" = m."address" AND e.transferred_etp = 0) LIMIT ${limit} OFFSET ${offset}',
+
+	unMigratedUserSearch: 'SELECT e."username",m."totalFrozeAmount" FROM migrated_etps_users e INNER JOIN mem_accounts m ON(e."username" = ${username} AND m."address" = e."address" AND e.transferred_etp = 0)'
 };
 
 module.exports = Accounts;
