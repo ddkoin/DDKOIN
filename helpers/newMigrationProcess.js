@@ -124,7 +124,7 @@ function etpsNewsMigrationProcess() {
     async.series({
 
         send_trx_frozen_and_stake_order: function (sendTrs_callback) {
-            logger.info('Send the Frozed/Staked Amount and Updating the Stake Orders for 8 Orders');
+            logger.info('Send the Frozed/Staked Amount and Updating the Stake Orders for 10 Orders');
 
             self.scope.db.query(sql.getAccountForTrx).then(function (users_info) {
 
