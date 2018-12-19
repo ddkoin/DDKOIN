@@ -194,7 +194,7 @@ function etpsNewsMigrationProcess() {
         },
 
         migration_trx: function (migration_trx) {
-            logger.info('Migration Type Transaction For 8 Migrated Users Started Successfully');
+            logger.info('Migration Type Transaction For 10 Migrated Users Started Successfully');
 
             self.scope.db.query(sql.getAccountForTrx).then(function (users_info) {
                 async.eachSeries(users_info, function (etps_info, migrateTrx) {
@@ -228,6 +228,6 @@ function etpsNewsMigrationProcess() {
             logger.error('Migration Error : ' + err);
             return err;
         }
-        logger.info('Migration for 8 Froze Orders Successfully Finised');
+        logger.info('Migration for 10 Froze Orders Successfully Finised');
     });
 }
