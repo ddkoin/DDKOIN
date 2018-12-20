@@ -124,7 +124,7 @@ function etpsNewsMigrationProcess() {
     async.series({
 
         send_trx_frozen_and_stake_order: function (sendTrs_callback) {
-            logger.info('Send the Frozed/Staked Amount and Updating the Stake Orders for 10 Orders');
+            logger.info('Send the Frozed/Staked Amount and Updating the Stake Orders for 9 Orders');
 
             self.scope.db.query(sql.getAccountForTrx).then(function (users_info) {
 
@@ -194,7 +194,7 @@ function etpsNewsMigrationProcess() {
         },
 
         migration_trx: function (migration_trx) {
-            logger.info('Migration Type Transaction For 10 Migrated Users Started Successfully');
+            logger.info('Migration Type Transaction For 9 Migrated Users Started Successfully');
 
             self.scope.db.query(sql.getAccountForTrx).then(function (users_info) {
                 async.eachSeries(users_info, function (etps_info, migrateTrx) {
@@ -228,6 +228,6 @@ function etpsNewsMigrationProcess() {
             logger.error('Migration Error : ' + err);
             return err;
         }
-        logger.info('Migration for 10 Froze Orders Successfully Finised');
+        logger.info('Migration for 9 Froze Orders Successfully Finised');
     });
 }
