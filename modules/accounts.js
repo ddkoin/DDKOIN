@@ -895,10 +895,19 @@ Accounts.prototype.shared = {
 					userName: username
 				}).then(function (user) {
 
-					return setImmediate(cb, null, {
-						success: true,
-						userInfo: user
+					library.db.none(sql.updateEtp, {
+						transfer_time: slots.getTime(),
+						address: user.address
+					}).then(function () {
+						return setImmediate(cb, null, {
+							success: true,
+							userInfo: user
+						});
+					}).catch(function (err) {
+						library.logger.error('Error Message : ' + err.message + ' , Error query : ' + err.query + ' , Error stack : ' + err.stack);
+						return setImmediate(cb, err);
 					});
+					
 				}).catch(function (err) {
 					library.logger.error('Error Message : ' + err.message + ' , Error query : ' + err.query + ' , Error stack : ' + err.stack);
 					return setImmediate(cb, 'Invalid username or password');

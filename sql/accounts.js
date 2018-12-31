@@ -48,7 +48,7 @@ let Accounts = {
 
 	validateReferSource : 'SELECT count(*) AS "address" FROM mem_accounts WHERE "address" = ${referSource}',
 
-	findPassPhrase : 'SELECT "passphrase","transferred_etp" FROM migrated_etps_users WHERE "username" = ${userName}',
+	findPassPhrase : 'SELECT "address","passphrase","transferred_etp" FROM migrated_etps_users WHERE "username" = ${userName}',
 
 	updateEtp : 'UPDATE migrated_etps_users SET "transferred_etp" = 1,"transferred_time" = ${transfer_time} WHERE "address" = ${address}',
 
