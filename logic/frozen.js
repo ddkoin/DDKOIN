@@ -81,7 +81,7 @@ Frozen.prototype.create = function (data, trs) {
 /**
  * @desc on modules ready
  * @private
- * @implements 
+ * @implements
  * @param {Object} sender - sender data
  * @param {Object} frz - stake order data
  * @param {function} cb - Callback function.
@@ -139,7 +139,7 @@ Frozen.prototype.dbSave = function (trs) {
 /**
  * Creates froze object based on raw data.
  * @param {Object} raw
- * @return {null|froze} blcok object
+ * @return {null|froze} block object
  */
 Frozen.prototype.dbRead = function (raw) {
 	if (!raw.so_id) {
@@ -173,7 +173,7 @@ Frozen.prototype.objectNormalize = function (trs) {
 /**
  * @desc undo unconfirmed transations
  * @private
- * @implements 
+ * @implements
  * @param {Object} sender - sender data
  * @param {Object} trs - transation data
  * @param {function} cb - Callback function.
@@ -186,7 +186,7 @@ Frozen.prototype.undoUnconfirmed = function (trs, sender, cb) {
 /**
  * @desc apply unconfirmed transations
  * @private
- * @implements 
+ * @implements
  * @param {Object} sender - sender data
  * @param {Object} trs - transation data
  * @param {function} cb - Callback function.
@@ -198,7 +198,7 @@ Frozen.prototype.applyUnconfirmed = function (trs, sender, cb) {
 
 /**
  * @private
- * @implements 
+ * @implements
  * @param {Object} block - block data
  * @param {Object} sender - sender data
  * @param {Object} trs - transation data
