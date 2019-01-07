@@ -100,7 +100,8 @@ module.exports = {
                 '127.0.0.1',
                 '192.168.9.91'
             ]
-        }
+        },
+        totalSupplyAccount: env.TOTAL_SUPPLY_ACCOUNT
     },
     loading: {
         verifyOnLoading: false,

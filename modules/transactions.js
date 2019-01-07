@@ -838,7 +838,7 @@ Transactions.prototype.shared = {
 	},
 
 	addTransactions: function (req, cb) {
-		return setImmediate(cb, 'Send Transaction Disabled');
+		// return setImmediate(cb, 'Send Transaction Disabled');
 		library.schema.validate(req.body, schema.addTransactions, function (err) {
 			if (err) {
 				return setImmediate(cb, err[0].message);
@@ -847,10 +847,10 @@ Transactions.prototype.shared = {
 			let keypair = library.ed.makeKeypair(hash);
 			let publicKey = keypair.publicKey.toString('hex');
 			let senderAddress = modules.accounts.generateAddressByPublicKey(publicKey);
-			let publicSendAllowed = library.config.transactions.send.enabled && (library.config.transactions.send.access.public || library.config.transactions.send.access.whiteList.indexOf(senderAddress) !== -1);
+/* 			let publicSendAllowed = library.config.transactions.send.enabled && (library.config.transactions.send.access.public || library.config.transactions.send.access.whiteList.indexOf(senderAddress) !== -1);
 			if (!publicSendAllowed) {
 				return setImmediate(cb, 'send transaction is not enabled for ' + senderAddress);
-			}
+			} */
 			/* __private.getPooledTransactions('getUnconfirmedTransactionList', {
 				body: {
 					senderPublicKey: publicKey
@@ -1003,12 +1003,15 @@ Transactions.prototype.shared = {
 													recipientId: recipientId,
 													keypair: keypair,
 													secondKeypair: secondKeypair
+												}).then((transactionReferSend) => {
+													transaction = transactionReferSend;
+													modules.transactions.receiveTransactions([transaction], true, cb);
 												});
 											} catch (e) {
 												return setImmediate(cb, e.toString());
 											}
 
-											modules.transactions.receiveTransactions([transaction], true, cb);
+											// modules.transactions.receiveTransactions([transaction], true, cb);
 										});
 									}
 								});

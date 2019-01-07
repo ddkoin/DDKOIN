@@ -6,16 +6,14 @@ let sql = require('../sql/frogings.js');
 let TransactionPool = require('../logic/transactionPool.js');
 let transactionTypes = require('../helpers/transactionTypes.js');
 let Frozen = require('../logic/frozen.js');
-let ref_sql = require('../sql/referal_sql');
-let env = process.env;
 let constants = require('../helpers/constants.js');
 let cache = require('./cache.js');
-let slots = require('../helpers/slots');
-let reward = require('../helpers/rewards');
+
+const COUNT_ACTIVE_STAKE_HOLDERS_KEY = 'COUNT_ACTIVE_STAKE_HOLDERS';
+const COUNT_ACTIVE_STAKE_HOLDERS_EXPIRE = 300; // 5 minutes
 
 // Private fields
 let __private = {};
-let shared = {};
 let modules;
 let library;
 let self;
@@ -34,7 +32,7 @@ __private.assetTypes = {};
  * @return {setImmediateCallback} Callback function with `self` as data.
  */
 // Constructor
-function Frogings(cb, scope) {
+function Frogings (cb, scope) {
 	library = {
 		logger: scope.logger,
 		db: scope.db,
@@ -57,6 +55,7 @@ function Frogings(cb, scope) {
 	__private.transactionPool = new TransactionPool(
 		scope.config.broadcasts.broadcastInterval,
 		scope.config.broadcasts.releaseLimit,
+		scope.config.transactions.maxTxsPerQueue,
 		scope.logic.transaction,
 		scope.bus,
 		scope.logger
@@ -74,88 +73,12 @@ function Frogings(cb, scope) {
  * 10 percent of Reward send to the Direct introducer for staking the amount by it's sponsor.
  * Reward is send through the main account.
  * Disable refer option when main account balance becomes zero.
- * @param {stake_amount} - Amount stake by the user.
- * @param {address} - Address of user which staked the amount.
- * @param {cb} - callback function.
+ * @param {reward} number - reward for referral user
+ * @param {address} string - Address of user which staked the amount.
+ * @param {introducerAddress} string - Address of user which get reward and introduce address to ddk.
+ * @param {transactionId} string - stake transaction id.
  * @author - Satish Joshi 
  */
-
-Frogings.prototype.referralReward = function (stake_amount, address, cb) {
-
-	let sponsor_address = address;
-	let introducerReward = {},
-		i = 0;
-
-	library.dbReplica.query(ref_sql.referLevelChain, {
-		address: sponsor_address
-	}).then(function (user) {
-
-		if (user.length != 0 && user[0].level != null) {
-
-			let sponsorId = user[0].level;
-
-			introducerReward[sponsorId[i]] = (((reward.stakeReward) * stake_amount) / 100);
-
-			let hash = Buffer.from(JSON.parse(library.config.users[6].keys));
-			let keypair = library.ed.makeKeypair(hash);
-			let publicKey = keypair.publicKey.toString('hex');
-			library.balancesSequence.add(function (reward_cb) {
-				modules.accounts.getAccount({ publicKey: publicKey }, function (err, account) {
-					if (err) {
-						return setImmediate(cb, err);
-					}
-					let transaction;
-					let secondKeypair = null;
-					account.publicKey = publicKey;
-
-					try {
-						transaction = library.logic.transaction.create({
-							type: transactionTypes.REFER,
-							amount: introducerReward[sponsorId[i]],
-							sender: account,
-							recipientId: sponsorId[i],
-							keypair: keypair,
-							secondKeypair: secondKeypair,
-							trsName: "DIRECTREF",
-							rewardPercentage: reward.stakeReward.toString()
-						});
-					} catch (e) {
-						return setImmediate(cb, e.toString());
-					}
-					modules.transactions.receiveTransactions([transaction], true, reward_cb);
-				});
-			}, function (err, transaction) {
-				if (err) {
-					return setImmediate(cb, err);
-				}
-				else {
-					// (async function(){
-					library.db.none(ref_sql.updateRewardTypeTransaction, {
-						trsId: transaction[0].id,
-						sponsorAddress: sponsor_address,
-						introducer_address: sponsorId[i],
-						reward: introducerReward[sponsorId[i]],
-						level: "Level 1",
-						transaction_type: "DIRECTREF",
-						time: slots.getTime()
-					}).then(function () {
-						return setImmediate(cb, null);
-					}).catch(function (err) {
-						return setImmediate(cb, err);
-					});
-					// }());
-				}
-			});
-		} else {
-			library.logger.info("Direct Introducer Reward Info : No referrals or any introducer found");
-			return setImmediate(cb, null);
-		}
-
-	}).catch(function (err) {
-		return setImmediate(cb, err);
-	});
-};
-
 
 // Events
 /**
@@ -192,6 +115,47 @@ Frogings.prototype.onBind = function (scope) {
  */
 Frogings.prototype.shared = {
 
+	getCountStakeHoldersFromCache: async () => {
+		return await cache.prototype.getJsonForKeyAsync(COUNT_ACTIVE_STAKE_HOLDERS_KEY);
+	},
+
+	getCountStakeHoldersFromQuery: async () => {
+		return await library.db.one(sql.countStakeholders);
+	},
+
+	updateCountStakeHoldersCache: async (value) => {
+		return await cache.prototype.setJsonForKeyAsync(
+			COUNT_ACTIVE_STAKE_HOLDERS_KEY, value, COUNT_ACTIVE_STAKE_HOLDERS_EXPIRE
+		);
+	},
+
+	countStakeholders: async function (req, cb) {
+		try {
+			let result = await self.shared.getCountStakeHoldersFromCache();
+			if (result === null) {
+				result = await self.shared.getCountStakeHoldersFromQuery();
+				await self.shared.updateCountStakeHoldersCache(result);
+			}
+			return setImmediate(cb, null, {
+				countStakeholders: result
+			});
+		} catch (err) {
+			return setImmediate(cb, err);
+		}
+	},
+
+	totalDDKStaked: function (req, cb) {
+		library.db.one(sql.getTotalStakedAmount)
+		.then(function (row) {
+			return setImmediate(cb, null, {
+				totalDDKStaked: row
+			});
+		})
+		.catch(function (err) {
+			return setImmediate(cb, err);
+		});
+	},
+
 	getMyDDKFrozen: function (req, cb) {
 		library.schema.validate(req.body, schema.getMyDDKFrozen, function (err) {
 			if (err) {
@@ -206,18 +170,18 @@ Frogings.prototype.shared = {
 				}
 
 				library.db.one(sql.getMyStakedAmount, { address: account.address })
-					.then(function (row) {
-						return setImmediate(cb, null, {
-							totalDDKStaked: row
-						});
-					})
-					.catch(function (err) {
-						return setImmediate(cb, err);
+				.then(function (row) {
+					return setImmediate(cb, null, {
+						totalDDKStaked: row
 					});
+				})
+				.catch(function (err) {
+					return setImmediate(cb, err);
+				});
 			});
 		});
 	},
-
+	
 	getAllFreezeOrders: function (req, cb) {
 
 		library.schema.validate(req.body, schema.getAllFreezeOrder, function (err) {
@@ -231,7 +195,6 @@ Frogings.prototype.shared = {
 				if (!account || !account.address) {
 					return setImmediate(cb, 'Address of account not found');
 				}
-
 				library.db.query(sql.getFrozeOrdersCount, { senderId: account.address })
 					.then(function (rows) {
 						let count = rows.length ? rows[0].count : 0;
@@ -269,23 +232,23 @@ Frogings.prototype.shared = {
 				if (!account || !account.address) {
 					return setImmediate(cb, 'Address of account not found');
 				}
-
+				
 				library.db.one(sql.getActiveFrozeOrders, { senderId: account.address })
-					.then(function (rows) {
-						return setImmediate(cb, null, {
-							freezeOrders: JSON.stringify(rows)
-						});
-					})
-					.catch(function (err) {
-						return setImmediate(cb, err);
+				.then(function (rows) {
+					return setImmediate(cb, null, {
+						freezeOrders: JSON.stringify(rows)
 					});
+				})
+				.catch(function (err) {
+					return setImmediate(cb, err);
+				});
 
 			});
 		});
 	},
 
 	addTransactionForFreeze: function (req, cb) {
-		return setImmediate(cb, 'Stake Transaction Disabled'); 
+
 		let accountData;
 		library.schema.validate(req.body, schema.addTransactionForFreeze, function (err) {
 			if (err) {
@@ -294,179 +257,168 @@ Frogings.prototype.shared = {
 
 			let hash = crypto.createHash('sha256').update(req.body.secret, 'utf8').digest();
 			let keypair = library.ed.makeKeypair(hash);
-			let publicKey = keypair.publicKey.toString('hex');
 
 			if (req.body.publicKey) {
 				if (keypair.publicKey.toString('hex') !== req.body.publicKey) {
 					return setImmediate(cb, 'Invalid passphrase');
 				}
 			}
-			/* modules.transactions.getUserUnconfirmedTransactions('getUnconfirmedTransactionList', {
-				body: {
-					senderPublicKey: publicKey
-				}
-			}, function (err, unconfirmedTrsList) {
-				if (err) {
-					return setImmediate(cb, err);
-				}
-				if (unconfirmedTrsList.transactions.length > 1) {
-					return setImmediate(cb, 'Your transaction is in pending state. Wait untill it is confirmed and try again!');
-				} else {
-					let senderAddress = modules.accounts.generateAddressByPublicKey(publicKey);
-					modules.transactions.getLastTransactionConfirmations(senderAddress, function (err, data) {
+
+			library.balancesSequence.add(function (cb) {
+				if (
+					req.body.multisigAccountPublicKey &&
+					req.body.multisigAccountPublicKey !== keypair.publicKey.toString('hex')
+				) {
+					modules.accounts.getAccount({ publicKey: req.body.multisigAccountPublicKey }, (err, account) => {
 						if (err) {
 							return setImmediate(cb, err);
 						}
-						if (data.length === 1 && data[0].b_confirmations < 10) {
-							return setImmediate(cb, 'Your last transactions is getting verified. Please wait untill block confirmations becomes 10 and try again. Current confirmations : ' + data[0].b_confirmations);
-						} */
-						library.balancesSequence.add(function (cb) {
-							if (req.body.multisigAccountPublicKey && req.body.multisigAccountPublicKey !== keypair.publicKey.toString('hex')) {
-								modules.accounts.getAccount({ publicKey: req.body.multisigAccountPublicKey }, function (err, account) {
-									if (err) {
-										return setImmediate(cb, err);
-									}
-									accountData = account;
+						accountData = account;
 
-									if (!account || !account.publicKey) {
-										return setImmediate(cb, 'Multisignature account not found');
-									}
+						if (!account || !account.publicKey) {
+							return setImmediate(cb, 'Multisignature account not found');
+						}
 
-									if (!account.multisignatures || !account.multisignatures) {
-										return setImmediate(cb, 'Account does not have multisignatures enabled');
-									}
+						if (!account.multisignatures || !account.multisignatures) {
+							return setImmediate(cb, 'Account does not have multisignatures enabled');
+						}
 
-									if (account.multisignatures.indexOf(keypair.publicKey.toString('hex')) < 0) {
-										return setImmediate(cb, 'Account does not belong to multisignature group');
-									}
+						if (account.multisignatures.indexOf(keypair.publicKey.toString('hex')) < 0) {
+							return setImmediate(cb, 'Account does not belong to multisignature group');
+						}
 
-									modules.accounts.getAccount({ publicKey: keypair.publicKey }, function (err, requester) {
-										if (err) {
-											return setImmediate(cb, err);
-										}
-
-										if (!requester || !requester.publicKey) {
-											return setImmediate(cb, 'Requester not found');
-										}
-
-										if (requester.secondSignature && !req.body.secondSecret) {
-											return setImmediate(cb, 'Missing second passphrase');
-										}
-
-										if (requester.publicKey === account.publicKey) {
-											return setImmediate(cb, 'Invalid requester public key');
-										}
-
-										let secondKeypair = null;
-
-										if (requester.secondSignature) {
-											let secondHash = crypto.createHash('sha256').update(req.body.secondSecret, 'utf8').digest();
-											secondKeypair = library.ed.makeKeypair(secondHash);
-										}
-
-										if ((req.body.freezedAmount + (constants.fees.froze * req.body.freezedAmount) / 100 + parseInt(account.totalFrozeAmount)) > account.balance) {
-											return setImmediate(cb, 'Insufficient balance');
-										}
-
-										let transaction;
-
-										try {
-											transaction = library.logic.transaction.create({
-												type: transactionTypes.STAKE,
-												freezedAmount: req.body.freezedAmount,
-												sender: account,
-												keypair: keypair,
-												secondKeypair: secondKeypair,
-												requester: keypair
-											});
-										} catch (e) {
-											return setImmediate(cb, e.toString());
-										}
-										modules.transactions.receiveTransactions([transaction], true, cb);
-									});
-
-								});
-							} else {
-								modules.accounts.setAccountAndGet({ publicKey: keypair.publicKey.toString('hex') }, function (err, account) {
-									if (err) {
-										return setImmediate(cb, err);
-									}
-									accountData = account;
-									if (!account || !account.publicKey) {
-										return setImmediate(cb, 'Account not found');
-									}
-
-									if (account.secondSignature && !req.body.secondSecret) {
-										return setImmediate(cb, 'Missing second passphrase');
-									}
-
-									let secondKeypair = null;
-
-									if (account.secondSignature) {
-										let secondHash = crypto.createHash('sha256').update(req.body.secondSecret, 'utf8').digest();
-										secondKeypair = library.ed.makeKeypair(secondHash);
-									}
-
-									if ((req.body.freezedAmount + (constants.fees.froze * req.body.freezedAmount) / 100 + parseInt(account.totalFrozeAmount)) > account.balance) {
-										return setImmediate(cb, 'Insufficient balance');
-									}
-
-									let transaction;
-
-									try {
-										transaction = library.logic.transaction.create({
-											type: transactionTypes.STAKE,
-											freezedAmount: req.body.freezedAmount,
-											sender: account,
-											keypair: keypair,
-											secondKeypair: secondKeypair
-										});
-									} catch (e) {
-										return setImmediate(cb, e.toString());
-									}
-									modules.transactions.receiveTransactions([transaction], true, cb);
-								});
-							}
-						}, function (err, transaction) {
+						modules.accounts.getAccount({ publicKey: keypair.publicKey }, function (err, requester) {
 							if (err) {
 								return setImmediate(cb, err);
 							}
-							library.network.io.sockets.emit('stake/create', null);
 
-							library.db.one(ref_sql.checkBalance, {
-								sender_address: constants.airdropAccount
-							}).then(function (bal) {
-								let balance = parseFloat(bal.balance);
-								if (balance > 1000) {
-									self.referralReward(req.body.freezedAmount, accountData.address, function (err) {
-										if (err) {
-											library.logger.error(err);
-										}
-										return setImmediate(cb, null, {
-											transaction: transaction[0],
-											referStatus: true
-										});
-									});
-								} else {
-									cache.prototype.isExists("referStatus", function (err, exist) {
-										if (!exist) {
-											cache.prototype.setJsonForKey("referStatus", false);
-										}
-										return setImmediate(cb, null, {
-											transaction: transaction[0],
-											referStatus: false
-										});
-									});
-								}
-							}).catch(function (err) {
-								library.logger.error('Error Message : ' + err.message + ' , Error query : ' + err.query + ' , Error stack : ' + err.stack);
-								return setImmediate(cb, err);
+							if (!requester || !requester.publicKey) {
+								return setImmediate(cb, 'Requester not found');
+							}
+
+							if (requester.secondSignature && !req.body.secondSecret) {
+								return setImmediate(cb, 'Missing second passphrase');
+							}
+
+							if (requester.publicKey === account.publicKey) {
+								return setImmediate(cb, 'Invalid requester public key');
+							}
+
+							let secondKeypair = null;
+
+							if (requester.secondSignature) {
+								let secondHash = crypto.createHash('sha256').update(req.body.secondSecret, 'utf8').digest();
+								secondKeypair = library.ed.makeKeypair(secondHash);
+							}
+
+							if (
+								(
+									req.body.freezedAmount +
+									(constants.fees.froze * req.body.freezedAmount)/100 +
+									parseInt(account.totalFrozeAmount)
+								) > account.balance
+							) {
+								return setImmediate(cb, 'Insufficient balance');
+							}
+
+							library.logic.transaction.create({
+								type: transactionTypes.STAKE,
+								freezedAmount: req.body.freezedAmount,
+								sender: account,
+								keypair: keypair,
+								secondKeypair: secondKeypair,
+								requester: keypair
+							}).then((transactionStake) => {
+								modules.transactions.receiveTransactions([transactionStake], true, cb);
+							}).catch((e) => {
+								return setImmediate(cb, e.toString());
 							});
 						});
-					//});
-				//}
-			//});
+
+					});
+				} else {
+					modules.accounts.setAccountAndGet({ publicKey: keypair.publicKey.toString('hex') }, function (err, account) {
+						if (err) {
+							return setImmediate(cb, err);
+						}
+						accountData = account;
+						if (!account || !account.publicKey) {
+							return setImmediate(cb, 'Account not found');
+						}
+
+						if (account.secondSignature && !req.body.secondSecret) {
+							return setImmediate(cb, 'Missing second passphrase');
+						}
+
+						let secondKeypair = null;
+
+						if (account.secondSignature) {
+							let secondHash = crypto.createHash('sha256').update(req.body.secondSecret, 'utf8').digest();
+							secondKeypair = library.ed.makeKeypair(secondHash);
+						}
+						
+						if (
+							(
+								req.body.freezedAmount +
+								(constants.fees.froze * req.body.freezedAmount)/100 +
+								parseInt(account.totalFrozeAmount)
+							) > account.balance
+						) {
+							return setImmediate(cb, 'Insufficient balance');
+						} 
+
+						library.logic.transaction.create({
+							type: transactionTypes.STAKE,
+							freezedAmount: req.body.freezedAmount,
+							sender: account,
+							keypair: keypair,
+							secondKeypair: secondKeypair
+						}).then((transactionStake) => {
+							modules.transactions.receiveTransactions([transactionStake], true, cb);
+						}).catch((e) => {
+							return setImmediate(cb, e.toString());
+						});
+					});
+				}
+			}, function (err, transaction) {
+				if (err) {
+					return setImmediate(cb, err);
+				}
+				library.network.io.sockets.emit('updateTotalStakeAmount', null);
+				return setImmediate(cb, null, {
+					transaction: transaction[0],
+					referStatus: true
+				});
+			});
 		});
+	},
+
+	getRewardHistory: function (req, cb) {
+		let params = {};
+		if (req.body.limit) {
+			params.limit = req.body.limit;
+		} else {
+			params.limit = 5;
+		}
+
+		if (req.body.offset) {
+			params.offset = req.body.offset;
+		} else {
+			params.offset = 0;
+		}
+
+		params.senderId = req.body.senderId;
+
+		library.db.query(sql.getStakeRewardHistory, { senderId: params.senderId, offset: params.offset, limit: params.limit })
+			.then(function (row) {
+				return setImmediate(cb, null, {
+					rewardHistory: row,
+					count: row[0].rewards_count
+				});
+			})
+			.catch(function (err) {
+				return setImmediate(cb, err);
+			});
 	}
 };
 

@@ -111,7 +111,7 @@ module.exports = {
 		}
 	},
 	// Configurable froze order : time here is in minutes
-	froze : {
+/* 	froze : {
 		endTime : 241920,
 		rTime : 40320,
 		vTime : 10080,
@@ -126,28 +126,35 @@ module.exports = {
 				2  // 2% For 31 months and above
 			],
 			distance: 1451520, // Distance between each milestone is 6 months
-		}
+		},
+		rewardVoteCount: 2,
+        unstakeVoteCount : 4
+	}, */
+	froze : {
+		endTime : 48,
+		rTime : 8,
+		vTime : 0,
+		milestone : 8, //for testing, taking 2 min
+		rewards: {
+			milestones: [
+				10, // 10% For 0-6 months
+				10, // 10% For 7-12 months
+				8, // 8% For 13-18 months
+				6, // 6% For 19-24 months
+				4, // 4% For 25-30 months
+				2  // 2% For 31 months and above
+			],
+			distance: 30, // Distance between each milestone is 6 months
+		},
+        rewardVoteCount: 2,
+        unstakeVoteCount : 4
 	},
 	defaultLock: 0,
-	stakeReward: 10,
-	validateLevelReward: {
-		'level1': 5,
-		'level2': 3,
-		'level3': 2,
-		'level4': 2,
-		'level5': 1,
-		'level6': 1,
-		'level7': 1,
-		'level8': 0.9,
-		'level9': 0.8,
-		'level10': 0.7,
-		'level11': 0.6,
-		'level12': 0.5,
-		'level13': 0.5,
-		'level14': 0.5,
-		'level15': 0.5
-	},
-	airdropAccount: 'DDK10720340277000928808'
+	airdrop: {
+		account: 'DDK10720340277000928808',
+		stakeRewardPercent: 10,
+		referralPercentPerLevel: [5, 3, 2, 2, 1, 1, 1, 0.9, 0.8, 0.7, 0.6, 0.5, 0.5, 0.5, 0.5]
+	}
 };
 
 /*************************************** END OF FILE *************************************/

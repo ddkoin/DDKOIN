@@ -753,7 +753,7 @@ Account.prototype.insertLevel = function (levelDetails, cb) {
 };
 
 Account.prototype.findReferralLevel= function(address,cb) {
-	this.scope.dbReplica.query(sql.referLevelChain,{
+	this.scope.db.query(sql.referLevelChain,{
 		address:address
 	}).then(function(user){
 		return setImmediate(cb,null,user);

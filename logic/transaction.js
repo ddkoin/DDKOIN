@@ -7,8 +7,10 @@ let extend = require('extend');
 let slots = require('../helpers/slots.js');
 let sql = require('../sql/transactions.js');
 let sqlAccount = require('../sql/accounts.js');
+let sqlFroging = require('../sql/frogings.js');
 let request = require('request');
-
+let transactionTypes = require('../helpers/transactionTypes.js');
+let utils = require('../utils.js');
 // Private fields
 let self, modules, __private = {};
 
@@ -22,6 +24,7 @@ let self, modules, __private = {};
  * - 5: DApp
  * - 6: InTransfer
  * - 7: OutTransfer
+ * - 8: STAKE
  */
 __private.types = {};
 
@@ -43,7 +46,6 @@ __private.types = {};
 function Transaction (db, dbReplica, ed, schema, genesisblock, account, logger, config, network, cb) {
 	this.scope = {
 		db: db,
-		dbReplica: dbReplica,
 		ed: ed,
 		schema: schema,
 		genesisblock: genesisblock,
@@ -71,7 +73,7 @@ function Transaction (db, dbReplica, ed, schema, genesisblock, account, logger, 
  * @param {Object} data
  * @return {transaction} trs
  */
-Transaction.prototype.create = function (data) {
+Transaction.prototype.create = async function (data) {
 	if (!__private.types[data.type]) {
 		throw 'Unknown transaction type ' + data.type;
 	}
@@ -94,10 +96,10 @@ Transaction.prototype.create = function (data) {
 		stakedAmount: 0,
 		trsName: 'NA',
 		groupBonus:0,
-		reward: data.rewardPercentage || null,
+		reward: data.rewardPercentage || null
 	};
 
-	trs = __private.types[trs.type].create.call(this, data, trs);
+	trs = await __private.types[trs.type].create.call(this, data, trs);
 	trs.signature = this.sign(data.keypair, trs);
 
 	if (data.sender.secondSignature && data.secondKeypair) {
@@ -105,11 +107,7 @@ Transaction.prototype.create = function (data) {
 	}
 
 	trs.id = this.getId(trs);
-	if(trs.type === 9) {
-		trs.fee = 0;
-	} else {
-		trs.fee = __private.types[trs.type].calculateFee.call(this, trs, data.sender) || false;
-	}
+	trs.fee = __private.types[trs.type].calculateFee.call(this, trs, data.sender) || false;
 	
 	return trs;
 };
@@ -306,7 +304,7 @@ Transaction.prototype.countById = function (trs, cb) {
 	this.scope.db.one(sql.countById, { id: trs.id }).then(function (row) {
 		return setImmediate(cb, null, row.count);
 	}).catch(function (err) {
-		this.scope.logger.error('Error Message : ' + err.message + ' , Error query : ' + err.query + ' , Error stack : ' + err.stack);
+		this.scope.logger.error(err.stack);
 		return setImmediate(cb, 'Transaction#countById error');
 	});
 };
@@ -340,13 +338,22 @@ Transaction.prototype.checkConfirmed = function (trs, cb) {
  *  modify checkbalance according to froze amount avaliable to user
  */
 Transaction.prototype.checkBalance = function (amount, balance, trs, sender) {
-	
-	let totalAmountWithFrozeAmount = trs.type == 10 ? new bignum(amount): new bignum(sender.totalFrozeAmount).plus(amount);
+
+	let totalAmountWithFrozeAmount = trs.type === transactionTypes.SENDSTAKE ?
+		new bignum(amount)
+		:
+		new bignum(sender.totalFrozeAmount).plus(amount);
 
 	let exceededBalance = new bignum(sender[balance].toString()).lessThan(totalAmountWithFrozeAmount);
 	let exceeded = (trs.blockId !== this.scope.genesisblock.block.id && exceededBalance);
 
-	if (parseInt( sender.totalFrozeAmount) > 0) {
+	// FIXME
+	// https://trello.com/c/MPx5yxNH/134-account-does-not-have-enough-ddk
+	if (trs.height <= constants.MASTER_NODE_MIGRATED_BLOCK) {
+		exceeded = false;
+	}
+
+	if (parseInt(sender.totalFrozeAmount) > 0) {
 		return {
 			exceeded: exceeded,
 			error: exceeded ? [
@@ -402,8 +409,8 @@ Transaction.prototype.process = function (trs, sender, requester, cb) {
 
 	try {
 		txId = this.getId(trs);
-	} catch (err) {
-		this.scope.logger.error('Error Message : ' + err.message + ' , Error query : ' + err.query + ' , Error stack : ' + err.stack);
+	} catch (e) {
+		this.scope.logger.error(e.stack);
 		return setImmediate(cb, 'Failed to get transaction id');
 	}
 
@@ -427,18 +434,18 @@ Transaction.prototype.process = function (trs, sender, requester, cb) {
 	}.bind(this));
 };
 
-Transaction.prototype.getAccountStatus = function(trs, cb) {	
-	this.scope.db.one(sqlAccount.checkAccountStatus, { 
-		senderId: trs.senderId 
-	}).then(function (row) {		
-		if (row.status === 0) {	 
+Transaction.prototype.getAccountStatus = function(trs, cb) {
+	this.scope.db.one(sqlAccount.checkAccountStatus, {
+		senderId: trs.senderId
+	}).then(function (row) {
+		if (row.status === 0) {
 			return setImmediate(cb,'Invalid transaction : account disabled');
-		} 			 
+		}
 		return setImmediate(cb, null, row.status);
-	}).catch(function (err) {		 
-		this.scope.logger.error('Error Message : ' + err.message + ' , Error query : ' + err.query + ' , Error stack : ' + err.stack);	 
-		return setImmediate(cb, 'Transaction#checkAccountStatus error');	
-	});	
+	}).catch(function (err) {
+		this.scope.logger.error(err.stack);
+		return setImmediate(cb, 'Transaction#checkAccountStatus error');
+	});
 };
 
 /**
@@ -449,18 +456,23 @@ Transaction.prototype.getAccountStatus = function(trs, cb) {
  * @param {transaction} trs
  * @param {account} sender
  * @param {account} requester
+ * @param  {boolean} checkExists - Check if transaction already exists in database
  * @param {function} cb
  * @return {setImmediateCallback} validation errors | trs
  */
-Transaction.prototype.verify = function (trs, sender, requester, cb) {
-	let valid = false;	
-	let err = null;	
-	if (typeof requester === 'function') {		
-		cb = requester;	
-	}	
-	// Check sender	
-	if (!sender) {		
-		return setImmediate(cb, 'Missing sender');	
+Transaction.prototype.verify = function (trs, sender, requester = {}, checkExists, cb) {
+	let valid = false;
+	let err = null;
+    if (typeof checkExists === 'function') {
+        cb = checkExists;
+        checkExists = false;
+    } else if (typeof requester === 'function') {
+		cb = requester;
+        requester = {};
+	}
+	// Check sender
+	if (!sender) {
+		return setImmediate(cb, 'Missing sender');
 	}
 
 	// Check transaction type
@@ -540,9 +552,9 @@ Transaction.prototype.verify = function (trs, sender, requester, cb) {
 	try {
 		valid = false;
 		valid = this.verifySignature(trs, (trs.requesterPublicKey || trs.senderPublicKey), trs.signature);
-	} catch (err) {
-		this.scope.logger.error('Error Message : ' + err.message + ' , Error query : ' + err.query + ' , Error stack : ' + err.stack);
-		return setImmediate(cb, err.toString());
+	} catch (e) {
+		this.scope.logger.error(e.stack);
+		return setImmediate(cb, e.toString());
 	}
 
 	if (!valid) {
@@ -604,10 +616,18 @@ Transaction.prototype.verify = function (trs, sender, requester, cb) {
 			}
 		}
 	}
-	
-	let fee = __private.types[trs.type].calculateFee.call(this, trs, sender) || false;
-	if ((trs.type !== 11 && trs.type !== 9 && trs.type !== 12) && (!fee || trs.fee !== fee)) {
-		return setImmediate(cb, 'Invalid transaction fee');
+
+	let fee = __private.types[trs.type].calculateFee.call(this, trs, sender) || 0;
+	if (
+		(trs.type !== transactionTypes.MIGRATION && trs.type !== transactionTypes.REFERRAL) &&
+		!(trs.type === transactionTypes.STAKE && trs.stakedAmount < 0) &&
+		(!fee || trs.fee !== fee)
+	) {
+		// TODO: Restore transation verify
+		// https://trello.com/c/2jF7cnad/115-restore-transactions-verifing
+		// return setImmediate(cb, 'Invalid transaction fee');
+
+		this.scope.logger.error('Invalid transaction fee');
 	}
 
 	// Check amount
@@ -618,12 +638,12 @@ Transaction.prototype.verify = function (trs, sender, requester, cb) {
 	// //Check sender not able to do transaction on froze amount
 	let amount;
 	// Check confirmed sender balance
-	if (trs.type !== 11 && trs.type !== 9 && trs.type !== 12) {
+	if (trs.type !== transactionTypes.MIGRATION) {
 		amount = new bignum(trs.amount.toString()).plus(trs.fee.toString());
 	} else {
 		amount = new bignum(trs.amount.toString());
 	}
-	
+
 	let senderBalance = this.checkBalance(amount, 'balance', trs, sender);
 
 	if (senderBalance.exceeded) {
@@ -635,15 +655,33 @@ Transaction.prototype.verify = function (trs, sender, requester, cb) {
 		return setImmediate(cb, 'Invalid transaction timestamp. Timestamp is in the future');
 	}
 
-	// Call verify on transaction type
-	__private.types[trs.type].verify.call(this, trs, sender, function (err) {
-		if (err) {
-			return setImmediate(cb, err);
-		} else {
-			// Check for already confirmed transaction
-			return self.checkConfirmed(trs, cb);
-		}
-	});
+    const verifyTransactionTypes = (transaction, sender, verifyTransactionTypesCb) => {
+		__private.types[trs.type].verify.call(this, transaction, sender, function (err) {
+            if (err) {
+                return setImmediate(verifyTransactionTypesCb, err);
+            }
+            return setImmediate(verifyTransactionTypesCb);
+        });
+    };
+
+    if (checkExists) {
+		this.checkConfirmed(trs, (checkConfirmedErr, isConfirmed) => {
+            if (checkConfirmedErr) {
+                return setImmediate(cb, checkConfirmedErr);
+            }
+
+            if (isConfirmed) {
+                return setImmediate(
+                    cb,
+					`Transaction is already confirmed: ${trs.id}`
+                );
+            }
+
+			verifyTransactionTypes(trs, sender, cb);
+        });
+    } else {
+		verifyTransactionTypes(trs, sender, cb);
+    }
 };
 
 /**
@@ -755,7 +793,7 @@ Transaction.prototype.apply = function (trs, block, sender, cb) {
 
 	let amount;
 	// Check confirmed sender balance
-	if (trs.type !== 11 && trs.type !==9 && trs.type !== 12 ) {
+	if (trs.type !== transactionTypes.MIGRATION) {
 		amount = new bignum(trs.amount.toString()).plus(trs.fee.toString());
 	} else {
 		amount = new bignum(trs.amount.toString());
@@ -811,11 +849,11 @@ Transaction.prototype.apply = function (trs, block, sender, cb) {
  */
 Transaction.prototype.undo = function (trs, block, sender, cb) {
 	let amount = new bignum(trs.amount.toString());
-	if (trs.type !== 11 && trs.type !== 9 && trs.type !== 12) {
+	if (trs.type !== transactionTypes.MIGRATION) {
 		amount = amount.plus(trs.fee.toString()).toNumber();
 	}
 
-	this.scope.logger.trace('Logic/Transaction->undo', { sender: sender.address, balance: amount, blockId: block.id, round: modules.rounds.calc(block.height) });
+	this.scope.logger.trace('Logic/Transaction->undo', {sender: sender.address, balance: amount, blockId: block.id, round: modules.rounds.calc(block.height)});
 	this.scope.account.merge(sender.address, {
 		balance: amount,
 		blockId: block.id,
@@ -839,7 +877,6 @@ Transaction.prototype.undo = function (trs, block, sender, cb) {
 			}
 		}.bind(this));
 	}.bind(this));
-
 };
 
 /**
@@ -862,16 +899,15 @@ Transaction.prototype.applyUnconfirmed = function (trs, sender, requester, cb) {
 		cb = requester;
 	}
 	var amount;
-
 	// Check unconfirmed sender balance
-	if (trs.type === 11 || trs.type === 9 || trs.type === 12) {
+	if (trs.type === transactionTypes.MIGRATION) {
 		amount = new bignum(trs.amount.toString());
 	} else {
 		amount = new bignum(trs.amount.toString()).plus(trs.fee.toString());
 	}
-	if(trs.type == 8 && (parseInt(sender.u_balance) - parseInt(sender.u_totalFrozeAmount)) < (trs.stakedAmount + trs.fee)){
-			return setImmediate(cb, 'Failed because of Frozen DDK');
-	}
+    if(trs.type == transactionTypes.STAKE && (parseInt(sender.u_balance) - parseInt(sender.u_totalFrozeAmount)) < (trs.stakedAmount + trs.fee)){
+        return setImmediate(cb, 'Failed because of Frozen DDK');
+    }
 	let senderBalance = this.checkBalance(amount, 'u_balance', trs, sender);
 
 	if (senderBalance.exceeded) {
@@ -880,40 +916,40 @@ Transaction.prototype.applyUnconfirmed = function (trs, sender, requester, cb) {
 
 	amount = amount.toNumber();
 
-	if (trs.type == 8) {
-		this.scope.account.merge(sender.address, {u_balance: -amount, u_totalFrozeAmount: trs.stakedAmount }, function (err, sender) {
-			if (err) {
-				return setImmediate(cb, err);
-			}
 
-			__private.types[trs.type].applyUnconfirmed.call(this, trs, sender, function (err) {
-				if (err) {
-					this.scope.account.merge(sender.address, {u_balance: amount, u_totalFrozeAmount: -trs.stakedAmount }, function (err2) {
-						return setImmediate(cb, err2 || err);
-					});
-				} else {
-					return setImmediate(cb);
-				}
-			}.bind(this));
-		}.bind(this));
-	} else {
-		this.scope.account.merge(sender.address, { u_balance: -amount }, function (err, sender) {
-			if (err) {
-				return setImmediate(cb, err);
-			}
+    if (trs.type == transactionTypes.STAKE) {
+        this.scope.account.merge(sender.address, {u_balance: -amount, u_totalFrozeAmount: trs.stakedAmount }, function (err, sender) {
+            if (err) {
+                return setImmediate(cb, err);
+            }
 
-			__private.types[trs.type].applyUnconfirmed.call(this, trs, sender, function (err) {
-				if (err) {
-					this.scope.account.merge(sender.address, { u_balance: amount }, function (err2) {
-						return setImmediate(cb, err2 || err);
-					});
-				} else {
-					return setImmediate(cb);
-				}
-			}.bind(this));
-		}.bind(this));
-	}
+            __private.types[trs.type].applyUnconfirmed.call(this, trs, sender, function (err) {
+                if (err) {
+                    this.scope.account.merge(sender.address, {u_balance: amount, u_totalFrozeAmount: -trs.stakedAmount }, function (err2) {
+                        return setImmediate(cb, err2 || err);
+                    });
+                } else {
+                    return setImmediate(cb);
+                }
+            }.bind(this));
+        }.bind(this));
+    } else {
+        this.scope.account.merge(sender.address, { u_balance: -amount }, function (err, sender) {
+            if (err) {
+                return setImmediate(cb, err);
+            }
 
+            __private.types[trs.type].applyUnconfirmed.call(this, trs, sender, function (err) {
+                if (err) {
+                    this.scope.account.merge(sender.address, { u_balance: amount }, function (err2) {
+                        return setImmediate(cb, err2 || err);
+                    });
+                } else {
+                    return setImmediate(cb);
+                }
+            }.bind(this));
+        }.bind(this));
+    }
 
 };
 
@@ -931,47 +967,46 @@ Transaction.prototype.applyUnconfirmed = function (trs, sender, requester, cb) {
  */
 Transaction.prototype.undoUnconfirmed = function (trs, sender, cb) {
 	let amount = new bignum(trs.amount.toString());
-	if (trs.type !== 11 && trs.type !== 9 && trs.type !== 12) {
+	if (trs.type !== transactionTypes.MIGRATION) {
 		amount = amount.plus(trs.fee.toString()).toNumber();
 	}
 	else {
 		amount = amount.toNumber();
 	}
 
-	if(trs.type == 8){
-		this.scope.account.merge(sender.address, {u_balance: amount, u_totalFrozeAmount: -trs.stakedAmount}, function (err, sender) {
-			if (err) {
-				return setImmediate(cb, err);
-			}
-	
-			__private.types[trs.type].undoUnconfirmed.call(this, trs, sender, function (err) {
-				if (err) {
-					this.scope.account.merge(sender.address, {u_balance: -amount, u_totalFrozeAmount: trs.stakedAmount}, function (err2) {
-						return setImmediate(cb, err2 || err);
-					});
-				} else {
-					return setImmediate(cb);
-				}
-			}.bind(this));
-		}.bind(this));
-	}else{
-		this.scope.account.merge(sender.address, {u_balance: amount}, function (err, sender) {
-			if (err) {
-				return setImmediate(cb, err);
-			}
-	
-			__private.types[trs.type].undoUnconfirmed.call(this, trs, sender, function (err) {
-				if (err) {
-					this.scope.account.merge(sender.address, {u_balance: -amount}, function (err2) {
-						return setImmediate(cb, err2 || err);
-					});
-				} else {
-					return setImmediate(cb);
-				}
-			}.bind(this));
-		}.bind(this));
-	}
-	
+    if(trs.type == transactionTypes.STAKE){
+        this.scope.account.merge(sender.address, {u_balance: amount, u_totalFrozeAmount: -trs.stakedAmount}, function (err, sender) {
+            if (err) {
+                return setImmediate(cb, err);
+            }
+
+            __private.types[trs.type].undoUnconfirmed.call(this, trs, sender, function (err) {
+                if (err) {
+                    this.scope.account.merge(sender.address, {u_balance: -amount, u_totalFrozeAmount: trs.stakedAmount}, function (err2) {
+                        return setImmediate(cb, err2 || err);
+                    });
+                } else {
+                    return setImmediate(cb);
+                }
+            }.bind(this));
+        }.bind(this));
+    }else{
+        this.scope.account.merge(sender.address, {u_balance: amount}, function (err, sender) {
+            if (err) {
+                return setImmediate(cb, err);
+            }
+
+            __private.types[trs.type].undoUnconfirmed.call(this, trs, sender, function (err) {
+                if (err) {
+                    this.scope.account.merge(sender.address, {u_balance: -amount}, function (err2) {
+                        return setImmediate(cb, err2 || err);
+                    });
+                } else {
+                    return setImmediate(cb);
+                }
+            }.bind(this));
+        }.bind(this));
+    }
 };
 
 Transaction.prototype.dbTable = 'trs';
@@ -1020,11 +1055,12 @@ Transaction.prototype.dbSave = function (trs) {
 		throw e;
 	}
 
-	if((trs.type === 8) && trs.freezedAmount > 0){
+	// FIXME ?
+	if((trs.type === transactionTypes.STAKE) && trs.freezedAmount > 0){
 		trs.amount = trs.freezedAmount;
 	}
 
-	if (trs.type === 11 || trs.type === 9 || trs.type === 12) {
+	if (trs.type === transactionTypes.MIGRATION) {
 		trs.fee = 0;
 	}
 
@@ -1050,7 +1086,7 @@ Transaction.prototype.dbSave = function (trs) {
 				signSignature: signSignature,
 				signatures: trs.signatures ? trs.signatures.join(',') : null,
 				trsName: trs.trsName,
-				reward: trs.reward,
+				reward: trs.reward
 			}
 		}
 	];
@@ -1071,8 +1107,37 @@ Transaction.prototype.dbSave = function (trs) {
  * @param {function} cb
  * @return {setImmediateCallback} error string | cb
  */
+/* Transaction.prototype.afterSave = async function (trs, cb) {
+	if (trs.type === transactionTypes.STAKE) {
+		const stakeOrders = await self.scope.db.manyOrNone(sqlFroging.getFrozeOrders, {
+			senderId: trs.senderId
+		});
+		if (stakeOrders && stakeOrders.length > 0) {
+			const bulkStakeOrders = utils.makeBulk(stakeOrders,'stake_orders');
+			await utils.indexall(bulkStakeOrders, 'stake_orders');
+
+		} else {
+			setImmediate(cb, 'couldn\'t add document to index stake_orders in the ElasticSearch');
+		}
+		//Stake order event
+		this.scope.network.io.sockets.emit('stake/change', null);
+	}
+
+	let tx_type = __private.types[trs.type];
+
+	if (!tx_type) {
+		return setImmediate(cb, 'Unknown transaction type ' + trs.type);
+	} else {
+		if (typeof tx_type.afterSave === 'function') {
+			return tx_type.afterSave.call(this, trs, cb);
+		} else {
+			return setImmediate(cb);
+		}
+	}
+}; */
+
 Transaction.prototype.afterSave = function (trs, cb) {
-	if (trs.type === 8) {
+	if (trs.type === transactionTypes.STAKE) {
 		//Stake order event
 		this.scope.network.io.sockets.emit('stake/change', null);
 	}
@@ -1235,7 +1300,7 @@ Transaction.prototype.Referschema = {
 			maximum: constants.totalAmount
 		},
 		fee: {
-			type: 'boolean',
+			type: 'integer',
 			minimum: 0,
 			maximum: constants.totalAmount
 		},
@@ -1272,13 +1337,13 @@ Transaction.prototype.objectNormalize = function (trs) {
 			delete trs[i];
 		}
 	}
-	trs.fee = trs.fee || false;
+	trs.fee = trs.fee || 0;
 
-	if (trs.type === 9 || trs.type === 11 || trs.type === 12)
+	if (trs.type === transactionTypes.MIGRATION)
 		var report = this.scope.schema.validate(trs, Transaction.prototype.Referschema);
 	else
 		var report = this.scope.schema.validate(trs, Transaction.prototype.schema);
-		
+
 	if (!report) {
 		console.log(trs);
 		throw 'Failed to validate transaction schema: ' + this.scope.schema.getLastErrors().map(function (err) {
@@ -1358,7 +1423,7 @@ Transaction.prototype.bindModules = function (__modules) {
 	};
 };
 
-// call add transaction API 
+// call add transaction API
 Transaction.prototype.sendTransaction = function (data, cb) {
 
 	let port = this.scope.config.app.port;
