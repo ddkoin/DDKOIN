@@ -8,6 +8,7 @@ let schema = require('../schema/accounts.js');
 let sandboxHelper = require('../helpers/sandbox.js');
 let transactionTypes = require('../helpers/transactionTypes.js');
 let Vote = require('../logic/vote.js');
+let Referral = require('../logic/referral.js');
 let sql = require('../sql/accounts.js');
 let cache = require('./cache.js');
 let config = process.env.NODE_ENV === 'development' ? require('../config/default') : process.env.NODE_ENV === 'testnet' ? require('../config/testnet') : require('../config/mainnet');
@@ -72,6 +73,16 @@ function Accounts(cb, scope) {
 		)
 	);
 
+	__private.assetTypes[transactionTypes.REFERRAL] = library.logic.transaction.attachAssetType(
+        transactionTypes.REFERRAL,
+        new Referral(
+            scope.logger,
+            scope.schema,
+            scope.db,
+            scope.logic.account
+        )
+	);
+	
 	setImmediate(cb, null, self);
 }
 
@@ -80,12 +91,12 @@ function Accounts(cb, scope) {
  * If not existes, generates new account data with public address
  * obtained from secret parameter.
  * @private
- * @param {function} secret
+ * @param {object} body
  * @param {function} cb - Callback function.
  * @returns {setImmediateCallback} As per logic new|current account data object.
  */
-__private.openAccount = function (secret, cb) {
-	let hash = crypto.createHash('sha256').update(secret, 'utf8').digest();
+__private.openAccount = function (body, cb) {
+	let hash = crypto.createHash('sha256').update(body.secret, 'utf8').digest();
 	let keypair = library.ed.makeKeypair(hash);
 	let publicKey = keypair.publicKey.toString('hex');
 
@@ -111,7 +122,24 @@ __private.openAccount = function (secret, cb) {
 				multisignatures: null,
 				u_multisignatures: null
 			};
-			return setImmediate(cb, null, account);
+
+			self.getReferralLinkChain(body.referal, account.address).then((level) => {
+				library.logic.transaction.create({
+					type: transactionTypes.REFERRAL,
+					sender: account,
+					keypair: keypair,
+					referrals: level
+				}).then((transactionReferral) => {
+					modules.transactions.receiveTransactions([transactionReferral], true, (err) => {
+						return setImmediate(cb, null, account);
+					});
+				}).catch((err) => {
+					throw err;
+				});
+			}).catch((err) => {
+				library.logger.error("Referral API Error : " + err);
+				return setImmediate(cb, err.toString());
+			});
 		}
 	});
 };
@@ -155,101 +183,50 @@ Accounts.prototype.getAccount = function (filter, fields, cb) {
 	library.logic.account.get(filter, fields, cb);
 };
 
-/**  
- * Firstly check whether the referral id is valid or not.
+/**
+ * Firstly check whether this referral id is valid or not.
  * If valid Generate referral chain for that user.
- * Check whether the user referral info already exist to avoid override referral info
- * In case of no referral, chain will contain the null value i.e; Blank. 
+ * In case of no referral, chain will contain the null value i.e; Blank.
  * @param {referalLink} - Refer Id.
  * @param {address} - Address of user during registration.
- * @param {cb} - callback function which return success or failure to the caller.
  * @author - Satish Joshi
  */
 
-Accounts.prototype.referralLinkChain = function (referalLink, address, cb) {
+Accounts.prototype.getReferralLinkChain = async function (referalLink, address) {
 
 	let referrer_address = referalLink;
-
+	if (!referrer_address) {
+        referrer_address = '';
+    }
 	let level = [];
-
 	if (referrer_address == address) {
-		let err = 'Introducer and sponsor can\'t be same';
-		return setImmediate(cb, err);
-	}
+        return Promise.reject('Introducer and sponsor can\'t be same');
+    }
+	let userExists = false;
+    try {
+        userExists = await library.dbReplica.one(sql.validateReferSource, { referSource: referrer_address });
+    } catch (e){
+        return Promise.reject('Referral Link is Invalid' + JSON.stringify(e));
+    }
+    userExists = userExists.address ? parseInt(userExists.address, 10) > 0 : false;
 
-	async.series([
-
-		function (valid_referral) {
-			if (referrer_address) {
-				library.dbReplica.one(sql.validateReferSource, {
-					referSource: referrer_address
-				}).then(function (user) {
-					if (parseInt(user.address)) {
-						level.unshift(referrer_address);
-						valid_referral();
-					} else {
-						let invalidError = 'Referral Link is Invalid';
-						return valid_referral(invalidError);
-					}
-				}).catch(function (error) {
-					valid_referral(error);
-				});
-			} else {
-				valid_referral();
-			}
-		},
-		function (referral_chain) {
-			if (referrer_address) {
-				library.logic.account.findReferralLevel(referrer_address, function (error, resp) {
-					if (error) {
-						return referral_chain(error);
-					}
-					if (resp.length != 0 && resp[0].level != null) {
-						let chain_length = ((resp[0].level.length) < 15) ? (resp[0].level.length) : 14;
-
-						level = level.concat(resp[0].level.slice(0, chain_length));
-					} else if (resp.length == 0) {
-						return referral_chain("Referral link source is not eligible");
-					}
-					referral_chain();
-				});
-			} else {
-				referral_chain();
-			}
-		},
-		function (insertReferralInfo) {
-			let levelDetails = {
-				address: address,
-				level: level
-			};
-
-			library.db.query(sql.checkReferStatus, {
-				address: levelDetails.address
-			}).then(function (user) {
-
-				if (user[0].address) {
-					insertReferralInfo();
-				} else {
-					library.logic.account.insertLevel(levelDetails, function (error) {
-						if (error) {
-							return insertReferralInfo(error);
+	if (userExists) {
+		level.unshift(referrer_address);
+		return new Promise((resolve, reject) => {
+				library.logic.account.findReferralLevel(referrer_address, function (err, resp) {
+						if (err) {
+								return reject(err);
 						}
-						level.length = 0;
-						insertReferralInfo();
-					});
-				}
-
-			}).catch(function (error) {
-				insertReferralInfo(error);
+						if (resp.length != 0 && resp[0].level != null) {
+								let chain_length = ((resp[0].level.length) < 15) ? (resp[0].level.length) : 14;
+								level = level.concat(resp[0].level.slice(0, chain_length));
+						}
+						resolve(level);
+				});
 			});
 		}
-	], function (err) {
-		if (err) {
-			return setImmediate(cb, err);
-		}
-
-		return setImmediate(cb, null);
-	});
+		return Promise.resolve([]);
+		
 };
 
 /**
@@ -300,7 +277,7 @@ Accounts.prototype.setAccountAndGet = function (data, cb) {
 
 	cache.prototype.isExists(REDIS_KEY_USER, function (err, isExist) {
 		if (!isExist) {
-			cache.prototype.setJsonForKey(REDIS_KEY_USER, address);
+			cache.prototype.setJsonForKeyAsync(REDIS_KEY_USER, address);
 		}
 
 		library.logic.account.set(address, data, function (err) {
@@ -387,6 +364,16 @@ Accounts.prototype.isLoaded = function () {
 	return !!modules;
 };
 
+Accounts.prototype.addressExists = async function (referrer_address) {
+    let result;
+    try {
+        result = await library.dbReplica.one(sql.validateReferSource, { referSource: referrer_address });
+        return result.address > 0;
+    } catch (e) {
+        return false;
+    }
+};
+
 Accounts.prototype.circulatingSupply = function (cb) {
 	// let initialUnmined = config.ddkSupply.totalSupply - config.initialPrimined.total;
 	//let publicAddress = library.config.sender.address;
@@ -420,12 +407,16 @@ Accounts.prototype.circulatingSupply = function (cb) {
  */
 Accounts.prototype.shared = {
 	open: function (req, cb) {
-		library.schema.validate(req.body, schema.open, function (err) {
+		library.schema.validate(req.body, schema.open, async function (err) {
 			if (err) {
 				return setImmediate(cb, err[0].message);
 			}
 
-			__private.openAccount(req.body.secret, function (err, account) {
+			if (req.body.referal && !await self.addressExists(req.body.referal)) {
+                return setImmediate(cb, 'Referral Address is Invalid');
+            }
+
+			__private.openAccount(req.body, function (err, account) {
 				if (!err) {
 
 					let payload = {
@@ -483,43 +474,9 @@ Accounts.prototype.shared = {
 					/****************************************************************/
 
 					cache.prototype.isExists(REDIS_KEY_USER_INFO_HASH, function (err, isExist) {
-
 						if (!isExist) {
-							cache.prototype.setJsonForKey(REDIS_KEY_USER_INFO_HASH, accountData.address);
-							self.referralLinkChain(req.body.referal, account.address, function (error) {
-								if (error) {
-									cache.prototype.deleteJsonForKey(REDIS_KEY_USER_INFO_HASH);
-									library.logger.error("Referral API Error : " + error);
-									return setImmediate(cb, error.toString());
-								} else {
-									let data = {
-										address: accountData.address,
-										u_isDelegate: 0,
-										isDelegate: 0,
-										vote: 0,
-										publicKey: accountData.publicKey,
-									};
-									if (account.u_isDelegate) {
-										data.u_isDelegate = account.u_isDelegate;
-									}
-									if (account.isDelegate) {
-										data.isDelegate = account.isDelegate;
-									}
-									if (account.vote) {
-										data.vote = account.vote;
-									}
-									library.logic.account.set(accountData.address, data, function (error) {
-										if (!error) {
-											return setImmediate(cb, null, {
-												account: accountData
-											});
-
-										} else {
-											return setImmediate(cb, error);
-										}
-									});
-								}
-							});
+							cache.prototype.setJsonForKeyAsync(REDIS_KEY_USER_INFO_HASH, accountData.address);
+							return setImmediate(cb, null, { account: accountData });
 						} else {
 							if (req.body.etps_user) {
 								library.db.none(sql.updateEtp, {
@@ -593,7 +550,7 @@ Accounts.prototype.shared = {
 				return setImmediate(cb, err[0].message);
 			}
 
-			__private.openAccount(req.body.secret, function (err, account) {
+			__private.openAccount(req.body/* .secret */, function (err, account) {
 				let publicKey = null;
 
 				if (!err && account) {

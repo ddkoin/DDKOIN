@@ -15,17 +15,19 @@
  * @returns {Object}
 */
 module.exports = {
-	SEND: 0,
-	SIGNATURE: 1,
-	DELEGATE: 2,
-	VOTE: 3,
-	MULTI: 4,
-	DAPP: 5,
-	IN_TRANSFER: 6,
-	OUT_TRANSFER: 7,
-	STAKE: 8,
+	REFERRAL: 0,
+	SEND: 10,
+	SIGNATURE: 20,
+	DELEGATE: 30,
+	STAKE: 40,
+	SENDSTAKE: 50,
+	VOTE: 60,
+	MULTI: 70,
+	DAPP: 80,
+	IN_TRANSFER: 90,
+	OUT_TRANSFER: 100,
+	/* NS_TODO: Check Below */
 	REWARD: 9,
-	SENDSTAKE : 10,
 	REFER	:	11,
 	MIGRATION : 12
 };
