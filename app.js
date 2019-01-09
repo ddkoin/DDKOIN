@@ -343,6 +343,10 @@ d.run(function () {
 				https_io = require('socket.io')(https);
 				//socketIO = require('socket.io')(https);
 			}
+		
+			if(https_io) {
+				io = https_io;
+			}
 
 			// handled socket's connection event
 			io.on('connection', function (socket) {
