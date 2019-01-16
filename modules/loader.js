@@ -510,7 +510,7 @@ __private.loadBlockChain = function () {
 
 			modules.blocks.utils.loadLastBlock(function (err, block) {
 				if (err) {
-					return reload(count, err || 'Failed to load last block');
+					return reload(count, err);
 				} else {
 					__private.lastBlock = block;
 					library.logger.info('Blockchain ready');
@@ -688,7 +688,7 @@ __private.findGoodPeers = function (heights) {
 		return {height: 0, peers: []};
 	} else {
 		// Ordering the peers with descending height
-		heights = heights.sort(function (a,b) {
+		heights.sort(function (a, b) {
 			return b.height - a.height;
 		});
 
